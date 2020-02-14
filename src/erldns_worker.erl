@@ -82,7 +82,7 @@ code_change(_OldVsn, State, _Extra) ->
 handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerProcess}) ->
   case inet:peername(Socket) of
     {ok, {Address, _Port}} ->
-      erldns_events:notify({start_tcp, [{host, Address}]}),
+      telemetry:execute([erldns, tcp, start], 1, #{host => Address}),
       Result = case Bin of
         <<>> -> ok;
         _ ->
@@ -98,11 +98,11 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
-      erldns_events:notify({end_tcp, [{host, Address}]}),
+      telemetry:execute([erldns, tcp, 'end'], 1, #{host => Address}),
       gen_tcp:close(Socket),
       Result;
     {error, Reason} ->
-      erldns_events:notify({tcp_error, Reason})
+      telemetry:execute([erldns, tcp, error], 1, #{reason => Reason})
   end;
 
 handle_tcp_dns_query(Socket, BadPacket, _) ->
@@ -131,7 +131,7 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
 -spec handle_udp_dns_query(gen_udp:socket(), gen_udp:ip(), inet:port_number(), binary(), {pid(), term()}) -> ok | {error, not_owner | timeout | inet:posix() | atom()} | {error, timeout, pid()}.
 handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess}) ->
   %lager:debug("handle_udp_dns_query(~p ~p ~p)", [Socket, Host, Port]),
-  erldns_events:notify({start_udp, [{host, Host}]}),
+  telemetry:execute([erldns, udp, start], 1, #{host => Host}),
   Result = case erldns_decoder:decode_message(Bin) of
     {trailing_garbage, DecodedMessage, _} ->
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess});
@@ -140,7 +140,7 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
     DecodedMessage ->
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess})
   end,
-  erldns_events:notify({end_udp, [{host, Host}]}),
+  telemetry:execute([erldns, udp, 'end'], 1, #{host => Host}),
   Result.
 
 -spec handle_decoded_udp_message(dns:message(), gen_udp:socket(), gen_udp:ip(), inet:port_number(), {pid(), term()}) ->

@@ -96,7 +96,7 @@ handle(BadMessage, {_, Host}) ->
 %% Note: this should probably be changed to return the original packet without
 %% any answer data and with TC bit set to 1.
 handle(Message, Host, {throttled, Host, _ReqCount}) ->
-  telemetry:execute([erldns, request, throttled], 1),
+  telemetry:execute([erldns, response, throttled], 1),
   Message#dns_message{tc = true, aa = true, rc = ?DNS_RCODE_NOERROR};
 
 %% Message was not throttled, so handle it, then do EDNS handling, optionally
@@ -104,10 +104,9 @@ handle(Message, Host, {throttled, Host, _ReqCount}) ->
 %% by filling out count-related header fields.
 handle(Message, Host, _) ->
   %lager:debug("Questions: ~p", [Message#dns_message.questions]),
-  erldns_events:notify({start_handle, [{host, Host}, {message, Message}]}),
+  telemetry:execute([erldns, response, handled, start], 1, #{host => Host, message => Message}),
   {Time, Response} = timer:tc(?MODULE, do_handle, [Message, Host]),
-  telemetry:execute([erldns, request, handled], Time, #{host => Host, message => Message}),
-  erldns_events:notify({end_handle, [{host, Host}, {message, Message}, {response, Response}]}),
+  telemetry:execute([erldns, response, handled], Time, #{host => Host, message => Message, response => Response}),
   Response.
 
 do_handle(Message, Host) ->
@@ -121,10 +120,10 @@ do_handle(Message, Host) ->
 handle_message(Message, Host) ->
   case erldns_packet_cache:get({Message#dns_message.questions, Message#dns_message.additional}, Host) of
     {ok, CachedResponse} ->
-      erldns_events:notify({packet_cache_hit, [{host, Host}, {message, Message}]}),
+      telemetry:execute([erldns, cache, packet, hit], 1, #{host => Host, message => Message}),
       CachedResponse#dns_message{id=Message#dns_message.id};
     {error, Reason} ->
-      erldns_events:notify({packet_cache_miss, [{reason, Reason}, {host, Host}, {message, Message}]}),
+      telemetry:execute([erldns, cache, packet, miss], 1, #{reason => Reason, host => Host, message => Message}),
       handle_packet_cache_miss(Message, get_authority(Message), Host) % SOA lookup
   end.
 
@@ -191,10 +190,10 @@ complete_response(Message) ->
 notify_empty_response(Message) ->
   case {Message#dns_message.rc, Message#dns_message.anc + Message#dns_message.auc + Message#dns_message.adc} of
     {?DNS_RCODE_REFUSED, _} ->
-      erldns_events:notify({refused_response, Message#dns_message.questions}),
+      telemetry:execute([erldns, response, refused], 1, #{questions => Message#dns_message.questions}),
       Message;
     {_, 0} ->
-      erldns_events:notify({empty_response, Message}),
+      telemetry:execute([erldns, response, empty], 1, #{message => Message}),
       Message;
     _ ->
       Message
