@@ -23,7 +23,7 @@
 %% @doc Encode the DNS message into its binary representation.
 %%
 %% Note that if the erldns catch_exceptions property is set in the
-%% configuration, then this function should never throw an 
+%% configuration, then this function should never throw an
 %% exception.
 -spec encode_message(dns:message()) -> dns:message_bin().
 encode_message(Response) ->
@@ -43,7 +43,7 @@ encode_message(Response) ->
 %% Opts argument to pass in encoding options.
 %%
 %% Note that if the erldns catch_exceptions property is set in the
-%% configuration, then this function should never throw an 
+%% configuration, then this function should never throw an
 %% exception.
 -spec encode_message(dns:message(), [dns:encode_message_opt()]) ->
   {false, dns:message_bin()} |

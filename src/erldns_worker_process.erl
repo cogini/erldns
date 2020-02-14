@@ -50,14 +50,14 @@ init(_Args) ->
 handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
   % Uncomment this and the function implementation to simulate a timeout when
   % querying www.example.com with the test zones
-  % simulate_timeout(DecodedMessage),  
-  
+  % simulate_timeout(DecodedMessage),
+
   erldns_events:notify({start_handle, tcp, [{host, Address}]}),
   Response = erldns_handler:handle(DecodedMessage, {tcp, Address}),
   erldns_events:notify({end_handle, tcp, [{host, Address}]}),
   EncodedMessage = erldns_encoder:encode_message(Response),
   send_tcp_message(Socket, EncodedMessage),
-  {reply, ok, State}; 
+  {reply, ok, State};
 
 % Process a UDP request. May truncate the response.
 handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) ->

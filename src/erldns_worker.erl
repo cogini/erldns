@@ -165,7 +165,7 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
 -spec handle_timeout(dns:message(), pid(), term()) -> {error, timeout, term()} | {error, timeout}.
 handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId) ->
   lager:debug("Worker timeout (message: ~p)", [DecodedMessage]),
-  
+
   telemetry:execute([erldns, worker, timeout], 1),
 
   TerminateResult = supervisor:terminate_child(WorkerProcessSup, WorkerProcessId),

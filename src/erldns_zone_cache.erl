@@ -123,7 +123,7 @@ get_zone_with_records(Name) ->
 get_authority(Message) when is_record(Message, dns_message) ->
   case Message#dns_message.questions of
     [] -> {error, no_question};
-    Questions -> 
+    Questions ->
       Question = lists:last(Questions),
       get_authority(Question#dns_query.name)
   end;
@@ -173,7 +173,7 @@ get_records_by_name(Name) ->
       case erldns_storage:select(zone_records, {erldns:normalize_name(Zone#zone.name), erldns:normalize_name(Name)}) of
         [] -> [];
         [{_, Records}] -> Records
-      end; 
+      end;
     _ ->
       []
   end.
@@ -290,13 +290,13 @@ code_change(_PreviousVersion, State, _Extra) ->
 % Internal API
 is_name_in_zone(Name, Zone) ->
   case erldns_storage:select(zone_records, {erldns:normalize_name(Zone#zone.name), erldns:normalize_name(Name)}) of
-    [] -> 
+    [] ->
       case dns:dname_to_labels(Name) of
         [] -> false;
         [_] -> false;
         [_|Labels] -> is_name_in_zone(dns:labels_to_dname(Labels), Zone)
       end;
-    _ -> true 
+    _ -> true
   end.
 
 find_zone_in_cache(Qname) ->
@@ -352,7 +352,7 @@ verify_zone(Zone, DnskeyRRs, KeyRRSigRecords) ->
   lager:debug("Verify zone (name: ~p)", [Zone#zone.name]),
   case lists:filter(fun(RR) -> RR#dns_rr.data#dns_rrdata_dnskey.flags =:= 257 end, DnskeyRRs) of
     [] -> false;
-    KSKs -> 
+    KSKs ->
       lager:debug("KSKs: ~p", [KSKs]),
       KSKDnskey = lists:last(KSKs),
       RRSig = lists:last(KeyRRSigRecords),

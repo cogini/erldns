@@ -56,7 +56,7 @@ resolve(Message, AuthorityRecords, Host, Question) when is_record(Question, dns_
 %% If the request required DNSSEC, apply the DNSSEC records
 -spec resolve(dns:message(), [dns:rr()], dns:dname(), dns:type(), dns:ip()) -> dns:message().
 resolve(Message, AuthorityRecords, Qname, Qtype, Host) ->
-  Zone = erldns_zone_cache:find_zone(Qname, lists:last(AuthorityRecords)), 
+  Zone = erldns_zone_cache:find_zone(Qname, lists:last(AuthorityRecords)),
   Records = resolve(Message, Qname, Qtype, Zone, Host, _CnameChain = []),
   sort_answers(erldns_dnssec:handle(additional_processing(erldns_records:rewrite_soa_ttl(Records), Host, Zone), Zone, Qname, Qtype)).
 
@@ -427,7 +427,7 @@ resolve_best_match_referral(Message, _Qname, _Qtype, _Host, _CnameChain, _BestMa
 resolve_best_match_referral(Message, _Qname, _Qtype, _Host, [], _BestMatchRecords, _Zone, _ReferralRecords, Authority) ->
   Message#dns_message{aa = true, rc = ?DNS_RCODE_NXDOMAIN, authority = Authority};
 
-% We are authoritative and the Qtype is ANY so we just return the 
+% We are authoritative and the Qtype is ANY so we just return the
 % original message.
 resolve_best_match_referral(Message, _Qname, ?DNS_TYPE_ANY, _Host, _CnameChain, _BestMatchRecords, _Zone, _ReferralRecords, _Authority) ->
   Message;
@@ -519,7 +519,7 @@ requires_additional_processing([Answer|Rest], RequiresAdditional) ->
 check_dnssec(Message, Host, Question) ->
   case proplists:get_bool(dnssec, erldns_edns:get_opts(Message)) of
     true ->
-      erldns_events:notify({dnssec_request, Host, Question#dns_query.name});
+      telemetry:execute([erldns, dnssec, request], 1, #{host => Host, name => Question#dns_query.name});
     false ->
       ok
   end.

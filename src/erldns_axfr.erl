@@ -35,7 +35,7 @@ optionally_append_soa(Message) ->
 optionally_append_soa(Message, []) ->
   Message;
 optionally_append_soa(Message, [Q|Rest]) ->
-  case Q#dns_query.type of 
+  case Q#dns_query.type of
     ?DNS_TYPE_AXFR_NUMBER -> append_soa(Message, Message#dns_message.answers);
     _ -> optionally_append_soa(Message, Rest)
   end.

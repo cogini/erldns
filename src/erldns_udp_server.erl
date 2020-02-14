@@ -99,7 +99,7 @@ start(Address, Port, InetFamily) ->
   lager:info("Starting UDP server (family: ~p, address: ~p, port: ~p)", [InetFamily, Address, Port]),
   case gen_udp:open(Port, [binary, {active, 100}, {reuseaddr, true},
                            {read_packets, 1000}, {ip, Address}, {recbuf, ?DEFAULT_UDP_RECBUF}, InetFamily]) of
-    {ok, Socket} -> 
+    {ok, Socket} ->
       lager:info("UDP server (family: ~p, address: ~p, socket: ~p)", [InetFamily, Address, Socket]),
       {ok, Socket};
     {error, eacces} ->
@@ -111,7 +111,7 @@ start(Address, Port, InetFamily, SocketOpts) ->
   lager:info("Starting UDP server (family: ~p, address: ~p, port ~p, sockopts: ~p)", [InetFamily, Address, Port, SocketOpts]),
   case gen_udp:open(Port, [{reuseaddr, true}, binary, {active, 100},
                            {read_packets, 1000}, {ip, Address}, {recbuf, ?DEFAULT_UDP_RECBUF}, InetFamily|SocketOpts]) of
-    {ok, Socket} -> 
+    {ok, Socket} ->
       lager:info("UDP server (family: ~p, address: ~p, socket: ~p, sockopts: ~p)", [InetFamily, Address, Socket, SocketOpts]),
       {ok, Socket};
     {error, eacces} ->

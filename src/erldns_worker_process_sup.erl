@@ -29,4 +29,4 @@ start_link([WorkerId]) ->
   supervisor:start_link(?MODULE, [WorkerId]).
 
 init(WorkerId) ->
-  {ok, {{one_for_one, 20, 10}, [{{WorkerId, erldns_worker_process}, {erldns_worker_process, start_link, [[]]}, permanent, brutal_kill, worker, [erldns_worker_process]}]}}. 
+  {ok, {{one_for_one, 20, 10}, [{{WorkerId, erldns_worker_process}, {erldns_worker_process, start_link, [[]]}, permanent, brutal_kill, worker, [erldns_worker_process]}]}}.

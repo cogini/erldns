@@ -23,7 +23,7 @@
 %% @doc Decode the binary data into its Erlang representation.
 %%
 %% Note that if the erldns catch_exceptions property is set in the
-%% configuration, then this function should never throw an 
+%% configuration, then this function should never throw an
 %% exception.
 -spec decode_message(dns:message_bin()) -> {dns:decode_error(), dns:message() | 'undefined', binary()} | dns:message().
 decode_message(Bin) ->
