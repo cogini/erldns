@@ -37,10 +37,10 @@ handle_event(start_servers, State) ->
       % Start up the UDP and TCP servers
       lager:info("Starting the UDP and TCP supervisor"),
       erldns_server_sup:start_link(),
-      erldns_events:notify(servers_started),
+      telemetry:execute([erldns, servers, started], 1),
       {ok, State#state{servers_running = true}};
     _ ->
-      erldns_events:notify(servers_already_started),
+      telemetry:execute([erldns, servers, started, already], 1),
       {ok, State}
   end;
 
