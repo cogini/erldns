@@ -166,8 +166,7 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
 handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId) ->
   lager:debug("Worker timeout (message: ~p)", [DecodedMessage]),
   
-  folsom_metrics:notify({worker_timeout_counter, {inc, 1}}),
-  folsom_metrics:notify({worker_timeout_meter, 1}),
+  telemetry:execute([erldns, worker, timeout], 1),
 
   TerminateResult = supervisor:terminate_child(WorkerProcessSup, WorkerProcessId),
   lager:debug("Terminate result: ~p", [TerminateResult]),

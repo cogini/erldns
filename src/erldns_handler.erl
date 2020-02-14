@@ -96,8 +96,7 @@ handle(BadMessage, {_, Host}) ->
 %% Note: this should probably be changed to return the original packet without
 %% any answer data and with TC bit set to 1.
 handle(Message, Host, {throttled, Host, _ReqCount}) ->
-  folsom_metrics:notify({request_throttled_counter, {inc, 1}}),
-  folsom_metrics:notify({request_throttled_meter, 1}),
+  telemetry:execute([erldns, request, throttled], 1),
   Message#dns_message{tc = true, aa = true, rc = ?DNS_RCODE_NOERROR};
 
 %% Message was not throttled, so handle it, then do EDNS handling, optionally
@@ -106,7 +105,8 @@ handle(Message, Host, {throttled, Host, _ReqCount}) ->
 handle(Message, Host, _) ->
   %lager:debug("Questions: ~p", [Message#dns_message.questions]),
   erldns_events:notify({start_handle, [{host, Host}, {message, Message}]}),
-  Response = folsom_metrics:histogram_timed_update(request_handled_histogram, ?MODULE, do_handle, [Message, Host]),
+  {Time, Response} = timer:tc(?MODULE, do_handle, [Message, Host]),
+  telemetry:execute([erldns, request, handled], Time, #{host => Host, message => Message}),
   erldns_events:notify({end_handle, [{host, Host}, {message, Message}, {response, Response}]}),
   Response.
 
