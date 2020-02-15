@@ -104,7 +104,7 @@ handle(Message, Host, {throttled, Host, _ReqCount}) ->
 %% by filling out count-related header fields.
 handle(Message, Host, _) ->
   %lager:debug("Questions: ~p", [Message#dns_message.questions]),
-  telemetry:execute([erldns, response, handled, start], 1, #{host => Host, message => Message}),
+  % telemetry:execute([erldns, response, handled, start], 1, #{host => Host, message => Message}),
   {Time, Response} = timer:tc(?MODULE, do_handle, [Message, Host]),
   telemetry:execute([erldns, response, handled], Time, #{host => Host, message => Message, response => Response}),
   Response.
@@ -190,11 +190,12 @@ complete_response(Message) ->
 notify_empty_response(Message) ->
   case {Message#dns_message.rc, Message#dns_message.anc + Message#dns_message.auc + Message#dns_message.adc} of
     {?DNS_RCODE_REFUSED, _} ->
-      telemetry:execute([erldns, response, refused], 1, #{questions => Message#dns_message.questions}),
+      telemetry:execute([erldns, response, refused], 1, #{message => Message}),
       Message;
     {_, 0} ->
       telemetry:execute([erldns, response, empty], 1, #{message => Message}),
       Message;
     _ ->
+      telemetry:execute([erldns, response, ok], 1, #{message => Message}),
       Message
   end.
