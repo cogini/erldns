@@ -82,7 +82,7 @@ code_change(_OldVsn, State, _Extra) ->
 handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerProcess}) ->
   case inet:peername(Socket) of
     {ok, {Address, _Port}} ->
-      telemetry:execute([erldns, tcp, start], 1, #{host => Address}),
+      % telemetry:execute([erldns, worker, start], 1, #{host => Address, proto => tcp}),
       Result = case Bin of
         <<>> -> ok;
         _ ->
@@ -98,11 +98,11 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
-      telemetry:execute([erldns, tcp, 'end'], 1, #{host => Address}),
+      telemetry:execute([erldns, worker, 'end'], 1, #{host => Address, proto => tcp}),
       gen_tcp:close(Socket),
       Result;
     {error, Reason} ->
-      telemetry:execute([erldns, tcp, error], 1, #{reason => Reason})
+      telemetry:execute([erldns, worker, error], 1, #{reason => Reason, proto => tcp})
   end;
 
 handle_tcp_dns_query(Socket, BadPacket, _) ->
