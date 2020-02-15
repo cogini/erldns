@@ -61,12 +61,12 @@ handle_event({tcp_error, Reason}, State) ->
   {ok, State};
 
 handle_event({refused_response, Questions}, State) ->
-  telemetry:execute([erldns, refused, response], 1),
+  telemetry:execute([erldns, response, refused], 1),
   lager:debug("Refused response: ~p", [Questions]),
   {ok, State};
 
 handle_event({empty_response, Message}, State) ->
-  telemetry:execute([erldns, empty, response], 1),
+  telemetry:execute([erldns, response, empty], 1),
   lager:info("Empty response: ~p", [Message]),
   {ok, State};
 
