@@ -50,5 +50,3 @@ filename() ->
     {ok, Filename} -> Filename;
     _ -> ?FILENAME
   end.
-
-
