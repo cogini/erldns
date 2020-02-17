@@ -75,10 +75,9 @@ handle_request(Socket, Bin, State) ->
   case queue:out(State#state.workers) of
     {{value, Worker}, Queue} ->
       gen_server:cast(Worker, {tcp_query, Socket, Bin}),
-      telemetry:execute([erldns, response, accepted], 1, #{proto => tcp}),
       {noreply, State#state{workers = queue:in(Worker, Queue)}};
     {empty, _Queue} ->
-      telemetry:execute([erldns, response, dropped], 1, #{proto => tcp}),
+      telemetry:execute([erldns, dropped], 1, #{proto => tcp}),
       lager:info("Queue is empty, dropping packet"),
       {noreply, State}
   end.

@@ -170,7 +170,7 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
           {error, {Error, Reason}}
       end;
     true ->
-      telemetry:execute([erldns, invalid], 1, #{reason => not_a_question, host => Host, message => DecodedMessage}),
+      telemetry:execute([erldns, invalid], 1, #{reason => qr, host => Host, message => DecodedMessage}),
       lager:info("Dropping request that is not a question"),
       {error, not_a_question}
   end.

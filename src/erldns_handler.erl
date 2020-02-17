@@ -96,7 +96,7 @@ handle(BadMessage, {_, Host}) ->
 %% Note: this should probably be changed to return the original packet without
 %% any answer data and with TC bit set to 1.
 handle(Message, Host, {throttled, Host, _ReqCount}) ->
-  telemetry:execute([erldns, response, throttled], 1),
+  telemetry:execute([erldns, throttled], 1),
   Message#dns_message{tc = true, aa = true, rc = ?DNS_RCODE_NOERROR};
 
 %% Message was not throttled, so handle it, then do EDNS handling, optionally
@@ -106,7 +106,7 @@ handle(Message, Host, _) ->
   %lager:debug("Questions: ~p", [Message#dns_message.questions]),
   % telemetry:execute([erldns, response, handled, start], 1, #{host => Host, message => Message}),
   {Time, Response} = timer:tc(?MODULE, do_handle, [Message, Host]),
-  telemetry:execute([erldns, response, handled], Time, #{host => Host, message => Message, response => Response}),
+  telemetry:execute([erldns, handled], Time, #{host => Host, message => Message, response => Response}),
   Response.
 
 do_handle(Message, Host) ->
@@ -157,6 +157,7 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
         Response -> maybe_cache_packet(Response, Response#dns_message.aa)
       catch
         Exception:Reason ->
+          telemetry:execute([erldns, error], 1, #{reason => Reason, host => Host, message => Message}),
           lager:error("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
           Message#dns_message{aa = false, rc = ?DNS_RCODE_SERVFAIL}
       end
@@ -180,6 +181,7 @@ get_authority(MessageOrName) ->
 
 %% Update the message counts and set the QR flag to true.
 complete_response(Message) ->
+  telemetry:execute([erldns, response], 1, #{rc => Message#dns_message.rc, message => Message}),
   notify_empty_response(Message#dns_message{
     anc = length(Message#dns_message.answers),
     auc = length(Message#dns_message.authority),
@@ -190,12 +192,10 @@ complete_response(Message) ->
 notify_empty_response(Message) ->
   case {Message#dns_message.rc, Message#dns_message.anc + Message#dns_message.auc + Message#dns_message.adc} of
     {?DNS_RCODE_REFUSED, _} ->
-      telemetry:execute([erldns, response, refused], 1, #{message => Message}),
       Message;
     {_, 0} ->
-      telemetry:execute([erldns, response, empty], 1, #{message => Message}),
+      telemetry:execute([erldns, empty], 1, #{message => Message}),
       Message;
     _ ->
-      telemetry:execute([erldns, response, ok], 1, #{message => Message}),
       Message
   end.
