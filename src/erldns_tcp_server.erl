@@ -55,6 +55,7 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Message, State) ->
   {noreply, State}.
 handle_info({tcp, Socket, Bin}, State) ->
+  telemetry:execute([erldns, request], 1, #{proto => tcp}),
   {Time, Response} = timer:tc(?MODULE, handle_request, [Socket, Bin, State]),
   telemetry:execute([erldns, handoff], Time, #{proto => tcp}),
   Response;
@@ -74,7 +75,7 @@ handle_request(Socket, Bin, State) ->
   case queue:out(State#state.workers) of
     {{value, Worker}, Queue} ->
       gen_server:cast(Worker, {tcp_query, Socket, Bin}),
-      % telemetry:execute([erldns, response, accepted], 1, #{proto => tcp}),
+      telemetry:execute([erldns, response, accepted], 1, #{proto => tcp}),
       {noreply, State#state{workers = queue:in(Worker, Queue)}};
     {empty, _Queue} ->
       telemetry:execute([erldns, response, dropped], 1, #{proto => tcp}),

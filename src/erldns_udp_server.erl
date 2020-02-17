@@ -79,6 +79,7 @@ handle_cast(_Message, State) ->
 handle_info(timeout, State) ->
   {noreply, State};
 handle_info({udp, Socket, Host, Port, Bin}, State) ->
+  telemetry:execute([erldns, request], 1, #{proto => udp}),
   {Time, Response} = timer:tc(?MODULE, handle_request, [Socket, Host, Port, Bin, State]),
   telemetry:execute([erldns, handoff], Time, #{proto => udp}),
   inet:setopts(State#state.socket, [{active, 100}]),
@@ -126,7 +127,7 @@ handle_request(Socket, Host, Port, Bin, State) ->
   case queue:out(State#state.workers) of
     {{value, Worker}, Queue} ->
       gen_server:cast(Worker, {udp_query, Socket, Host, Port, Bin}),
-      % telemetry:execute([erldns, packet, accepted], 1, #{proto => udp}),
+      telemetry:execute([erldns, packet, accepted], 1, #{proto => udp}),
       {noreply, State#state{workers = queue:in(Worker, Queue)}};
     {empty, _Queue} ->
       telemetry:execute([erldns, packet, dropped], 1, #{proto => udp}),
