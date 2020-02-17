@@ -66,7 +66,7 @@ register_parsers(Modules) ->
   lager:info("Registering custom parsers (modules: ~p)", [Modules]),
   gen_server:call(?SERVER, {register_parsers, Modules}).
 
-%% @doc Regiaer a custom parser module.
+%% @doc Register a custom parser module.
 -spec register_parser(module()) -> ok.
 register_parser(Module) ->
   lager:info("Registering custom parser (module: ~p)", [Module]),
