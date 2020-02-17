@@ -78,7 +78,7 @@ code_change(_PreviousVersion, State, _Extra) ->
 
 type_match() -> fun(Record) -> Record#dns_rr.type =:= ?DNS_SAMPLE_TYPE end.
 
-convert() -> 
+convert() ->
   fun(Record) ->
       {ok, Address} = inet_parse:address(binary_to_list(Record#dns_rr.data)),
       Record#dns_rr{type = ?DNS_TYPE_A, data = #dns_rrdata_a{ip=Address}}
