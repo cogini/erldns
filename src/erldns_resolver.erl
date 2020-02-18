@@ -516,6 +516,7 @@ requires_additional_processing([Answer|Rest], RequiresAdditional) ->
   requires_additional_processing(Rest, RequiresAdditional ++ Names).
 
 %% @doc Return true if DNSSEC is requested and enabled.
+% TODO: implementation does not match doc, does not return boolean
 check_dnssec(Message, Host, Question) ->
   case proplists:get_bool(dnssec, erldns_edns:get_opts(Message)) of
     true ->
