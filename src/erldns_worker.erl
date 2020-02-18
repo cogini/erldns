@@ -127,8 +127,10 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
           {error, {Error, Reason}}
       end;
     true ->
+      telemetry:execute([erldns, invalid], 1, #{reason => qr, host => Address, message => DecodedMessage}),
       lager:info("Dropping request that is not a question"),
-      {error, not_a_question}
+      % {error, not_a_question}
+      ok
   end.
 
 
@@ -172,7 +174,8 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
     true ->
       telemetry:execute([erldns, invalid], 1, #{reason => qr, host => Host, message => DecodedMessage}),
       lager:info("Dropping request that is not a question"),
-      {error, not_a_question}
+      % {error, not_a_question}
+      ok
   end.
 
 -spec handle_timeout(dns:message(), pid(), term()) -> {error, timeout, term()} | {error, timeout}.
