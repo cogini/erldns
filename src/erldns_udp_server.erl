@@ -79,9 +79,9 @@ handle_cast(_Message, State) ->
 handle_info(timeout, State) ->
   {noreply, State};
 handle_info({udp, Socket, Host, Port, Bin}, State) ->
-  telemetry:execute([erldns, request], 1, #{proto => udp}),
+  telemetry:execute([erldns, request], #{count => 1}, #{proto => udp}),
   {Time, Response} = timer:tc(?MODULE, handle_request, [Socket, Host, Port, Bin, State]),
-  telemetry:execute([erldns, handoff], Time, #{proto => udp}),
+  telemetry:execute([erldns, handoff], #{duration => Time}, #{proto => udp}),
   inet:setopts(State#state.socket, [{active, 100}]),
   Response;
 handle_info(_Message, State) ->
@@ -129,7 +129,7 @@ handle_request(Socket, Host, Port, Bin, State) ->
       gen_server:cast(Worker, {udp_query, Socket, Host, Port, Bin}),
       {noreply, State#state{workers = queue:in(Worker, Queue)}};
     {empty, _Queue} ->
-      telemetry:execute([erldns, dropped], 1, #{proto => udp}),
+      telemetry:execute([erldns, dropped], #{count => 1}, #{proto => udp}),
       lager:info("Queue is empty, dropping packet"),
       {noreply, State}
   end.

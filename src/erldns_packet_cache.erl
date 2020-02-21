@@ -60,14 +60,14 @@ get(Key, _Host) ->
     [{Key, {Response, ExpiresAt}}] ->
       case timestamp() > ExpiresAt of
         true ->
-          telemetry:execute([erldns, cache, expired], 1),
+          telemetry:execute([erldns, cache, expired], #{count => 1}),
           {error, cache_expired};
         false ->
-          telemetry:execute([erldns, cache, hit], 1),
+          telemetry:execute([erldns, cache, hit], #{count => 1}),
           {ok, Response}
       end;
     _ ->
-      telemetry:execute([erldns, cache, miss], 1),
+      telemetry:execute([erldns, cache, miss], #{count => 1}),
       {error, cache_miss}
   end.
 

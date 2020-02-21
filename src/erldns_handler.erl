@@ -96,7 +96,7 @@ handle(BadMessage, {_, Host}) ->
 %% Note: this should probably be changed to return the original packet without
 %% any answer data and with TC bit set to 1.
 handle(Message, Host, {throttled, Host, _ReqCount}) ->
-  telemetry:execute([erldns, throttled], 1),
+  telemetry:execute([erldns, throttled], #{count => 1}),
   Message#dns_message{tc = true, aa = true, rc = ?DNS_RCODE_NOERROR};
 
 %% Message was not throttled, so handle it, then do EDNS handling, optionally
@@ -104,9 +104,9 @@ handle(Message, Host, {throttled, Host, _ReqCount}) ->
 %% by filling out count-related header fields.
 handle(Message, Host, _) ->
   %lager:debug("Questions: ~p", [Message#dns_message.questions]),
-  % telemetry:execute([erldns, response, handled, start], 1, #{host => Host, message => Message}),
+  % telemetry:execute([erldns, response, handled, start], #{count => 1}, #{host => Host, message => Message}),
   {Time, Response} = timer:tc(?MODULE, do_handle, [Message, Host]),
-  telemetry:execute([erldns, handled], Time, #{host => Host, message => Message, response => Response}),
+  telemetry:execute([erldns, handled], #{duration => Time}, #{host => Host, message => Message, response => Response}),
   Response.
 
 do_handle(Message, Host) ->
@@ -120,10 +120,10 @@ do_handle(Message, Host) ->
 handle_message(Message, Host) ->
   case erldns_packet_cache:get({Message#dns_message.questions, Message#dns_message.additional}, Host) of
     {ok, CachedResponse} ->
-      telemetry:execute([erldns, cache, packet, hit], 1, #{host => Host, message => Message}),
+      telemetry:execute([erldns, cache, packet, hit], #{count => 1}, #{host => Host, message => Message}),
       CachedResponse#dns_message{id=Message#dns_message.id};
     {error, Reason} ->
-      telemetry:execute([erldns, cache, packet, miss], 1, #{reason => Reason, host => Host, message => Message}),
+      telemetry:execute([erldns, cache, packet, miss], #{count => 1}, #{reason => Reason, host => Host, message => Message}),
       handle_packet_cache_miss(Message, get_authority(Message), Host) % SOA lookup
   end.
 
@@ -157,7 +157,7 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
         Response -> maybe_cache_packet(Response, Response#dns_message.aa)
       catch
         Exception:Reason ->
-          telemetry:execute([erldns, error], 1, #{reason => Reason, host => Host, message => Message}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => Reason, host => Host, message => Message}),
           lager:error("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
           Message#dns_message{aa = false, rc = ?DNS_RCODE_SERVFAIL}
       end
@@ -181,7 +181,7 @@ get_authority(MessageOrName) ->
 
 %% Update the message counts and set the QR flag to true.
 complete_response(Message) ->
-  telemetry:execute([erldns, response], 1, #{rc => Message#dns_message.rc, message => Message}),
+  telemetry:execute([erldns, response], #{count => 1}, #{rc => Message#dns_message.rc, message => Message}),
   notify_empty_response(Message#dns_message{
     anc = length(Message#dns_message.answers),
     auc = length(Message#dns_message.authority),
@@ -194,7 +194,7 @@ notify_empty_response(Message) ->
     {?DNS_RCODE_REFUSED, _} ->
       Message;
     {_, 0} ->
-      telemetry:execute([erldns, empty], 1, #{message => Message}),
+      telemetry:execute([erldns, empty], #{count => 1}, #{message => Message}),
       Message;
     _ ->
       Message

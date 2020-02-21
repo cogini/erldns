@@ -37,41 +37,41 @@ handle_event(start_servers, State) ->
       % Start up the UDP and TCP servers
       lager:info("Starting the UDP and TCP supervisor"),
       erldns_server_sup:start_link(),
-      telemetry:execute([erldns, servers, started], 1),
+      telemetry:execute([erldns, servers, started], #{count => 1}),
       {ok, State#state{servers_running = true}};
     _ ->
-      telemetry:execute([erldns, servers, started, already], 1),
+      telemetry:execute([erldns, servers, started, already], #{count => 1}),
       {ok, State}
   end;
 
 handle_event({end_udp, [{host, _Host}]}, State) ->
-  telemetry:execute([erldns, udp, request], 1),
+  telemetry:execute([erldns, udp, request], #{count => 1}),
   {ok, State};
 
 handle_event({end_tcp, [{host, _Host}]}, State) ->
-  telemetry:execute([erldns, tcp, request], 1),
+  telemetry:execute([erldns, tcp, request], #{count => 1}),
   {ok, State};
 
 handle_event({udp_error, Reason}, State) ->
-  telemetry:execute([erldns, udp, error], 1, #{reason => Reason}),
+  telemetry:execute([erldns, udp, error], #{count => 1}, #{reason => Reason}),
   {ok, State};
 
 handle_event({tcp_error, Reason}, State) ->
-  telemetry:execute([erldns, tcp, error], 1, #{reason => Reason}),
+  telemetry:execute([erldns, tcp, error], #{count => 1}, #{reason => Reason}),
   {ok, State};
 
 handle_event({refused_response, Questions}, State) ->
-  telemetry:execute([erldns, response, refused], 1),
+  telemetry:execute([erldns, response, refused], #{count => 1}),
   lager:debug("Refused response: ~p", [Questions]),
   {ok, State};
 
 handle_event({empty_response, Message}, State) ->
-  telemetry:execute([erldns, response, empty], 1),
+  telemetry:execute([erldns, response, empty], #{count => 1}),
   lager:info("Empty response: ~p", [Message]),
   {ok, State};
 
 handle_event({dnssec_request, _Host, _Qname}, State) ->
-  telemetry:execute([erldns, dnssec, request], 1),
+  telemetry:execute([erldns, dnssec, request], #{count => 1}),
   {ok, State};
 
 handle_event(_Event, State) ->
