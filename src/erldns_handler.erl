@@ -157,7 +157,7 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
         Response -> maybe_cache_packet(Response, Response#dns_message.aa)
       catch
         Exception:Reason ->
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => Reason, host => Host, message => Message}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Host, message => Message}),
           lager:error("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
           Message#dns_message{aa = false, rc = ?DNS_RCODE_SERVFAIL}
       end

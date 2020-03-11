@@ -122,7 +122,7 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
           telemetry:execute([erldns, error], #{count => 1}, #{reason => timeout, host => Address, message => DecodedMessage}),
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => Reason, host => Address, message => DecodedMessage}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Address, message => DecodedMessage}),
           lager:error("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           {error, {Error, Reason}}
       end;
@@ -167,7 +167,7 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
           telemetry:execute([erldns, error], #{count => 1}, #{reason => timeout, host => Host, message => DecodedMessage}),
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => Reason, host => Host, message => DecodedMessage}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Host, message => DecodedMessage}),
           lager:error("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           {error, {Error, Reason}}
       end;
