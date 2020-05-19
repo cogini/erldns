@@ -21,11 +21,11 @@
 
 %% @doc Handle telemetry events.
 handle_event(EventName, Measurements, Metadata, _Config) ->
-  ?LOG_ERROR("%p %p %p", [EventName, Measurements, Metadata]).
+  ?LOG_ERROR("~p ~p ~p", [EventName, Measurements, Metadata]).
 
 %% @doc Initialize event handler.
 init() ->
-  ?LOG_DEBUG("Initializing Telemetry event handler"),
+  ?LOG_INFO("Initializing Telemetry event handler"),
 
   Events = [
     % These events are generated in zone processing,
@@ -72,4 +72,4 @@ init() ->
     % [erldns, worker, error],
     % [erldns, worker, start],
   ],
-  telemetry:attach_many(?MODULE, Events, fun erldns_telemetry:handle_event/4, #{}).
+  telemetry:attach_many(?MODULE, Events, fun ?MODULE:handle_event/4, #{}).
