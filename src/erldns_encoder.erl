@@ -33,9 +33,9 @@ encode_message(Response) ->
       try dns:encode_message(Response) of
         M -> M
       catch
-        _Exception:Reason ->
+        Exception:Reason ->
           % erldns_events:notify({?MODULE, encode_message_error, {Exception, Reason, Response}}),
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => encode, detail => Reason, message => Response}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => encode, exception => Exception, detail => Reason, message => Response}),
           encode_message(build_error_response(Response))
       end
   end.
@@ -61,7 +61,7 @@ encode_message(Response, Opts) ->
       catch
         Exception:Reason ->
           % erldns_events:notify({?MODULE, encode_message_error, {Exception, Reason, Response, Opts}}),
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => encode, detail => Reason, message => Response, opts => Opts}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => encode_message, exception => Exception, detail => Reason, message => Response, opts => Opts}),
           {false, encode_message(build_error_response(Response))}
       end
   end.
