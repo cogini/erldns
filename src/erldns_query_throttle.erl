@@ -19,6 +19,7 @@
 
 -behavior(gen_server).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns_erlang/include/dns_records.hrl").
 
 %% API
@@ -51,11 +52,11 @@ start_link() ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %% @doc Throttle the given message if necessary.
--spec throttle(dns:message(), Context :: {term(), Host :: inet:ip_address() | inet:hostname()}) ->
+-spec throttle(dns:message(), Context :: {atom(), Host :: inet:ip_address() | inet:hostname()}) ->
   ok | throttle_result().
 -if(not(ENABLED)).
 throttle(_Message, {_, _Host}) ->
-    %% lager:debug("Throttle not enabled"),
+    %% ?LOG_DEBUG("Throttle not enabled"),
     ok.
 -else.
 throttle(_Message, {tcp, _Host}) ->

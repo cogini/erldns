@@ -3,16 +3,16 @@
  [{description, "Erlang Authoritative DNS Server"},
   {vsn, "1.0.0"},
   {licenses, ["MIT"]},
-  {mod, { erldns_app, []}},
+  {mod, {erldns_app, []}},
   {applications, [kernel,
                   stdlib,
                   inets,
                   crypto,
-                  lager,
                   dns_erlang,
                   jsx,
                   ssl,
                   mnesia,
-                  iso8601]},
+                  iso8601,
+                  telemetry]},
   {start_phases, [{post_start, []}]}
-  ]}.
+ ]}.

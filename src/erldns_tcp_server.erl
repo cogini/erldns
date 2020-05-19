@@ -16,6 +16,8 @@
 -module(erldns_tcp_server).
 -behavior(gen_nb_server).
 
+-include_lib("kernel/include/logger.hrl").
+
 % API
 -export([start_link/2, start_link/4]).
 
@@ -44,7 +46,7 @@ start_link(Name, Family) ->
 
 -spec start_link(atom(), inet | inet6, inet:ip_address(), inet:port_number()) -> {ok, pid()} | ignore | {error, term()}.
 start_link(_Name, Family, Address, Port) ->
-  lager:info("Starting TCP server for ~p on address ~p port ~p", [Family, Address, Port]),
+  ?LOG_INFO("Starting TCP server for ~p on address ~p port ~p", [Family, Address, Port]),
   gen_nb_server:start_link(?MODULE, Address, Port, []).
 
 %% gen_server hooks
@@ -56,9 +58,7 @@ handle_cast(_Message, State) ->
   {noreply, State}.
 handle_info({tcp, Socket, Bin}, State) ->
   telemetry:execute([erldns, request], #{count => 1}, #{proto => tcp}),
-  {Time, Response} = timer:tc(?MODULE, handle_request, [Socket, Bin, State]),
-  telemetry:execute([erldns, handoff], #{duration => Time}, #{proto => tcp}),
-  Response;
+  handle_request(Socket, Bin, State);
 handle_info(_Message, State) ->
   {noreply, State}.
 terminate(_Reason, _State) ->
@@ -74,11 +74,13 @@ code_change(_PreviousVersion, State, _Extra) ->
 handle_request(Socket, Bin, State) ->
   case queue:out(State#state.workers) of
     {{value, Worker}, Queue} ->
-      gen_server:cast(Worker, {tcp_query, Socket, Bin}),
+      % gen_server:cast(Worker, {tcp_query, Socket, Bin}),
+      {Time, _Response} = timer:tc(gen_server, cast, [Worker, {tcp_query, Socket, Bin}]),
+      telemetry:execute([erldns, handoff], #{duration => Time}, #{proto => tcp}),
       {noreply, State#state{workers = queue:in(Worker, Queue)}};
     {empty, _Queue} ->
       telemetry:execute([erldns, dropped], #{count => 1}, #{proto => tcp}),
-      lager:info("Queue is empty, dropping packet"),
+      % ?LOG_INFO("Queue is empty, dropping packet"),
       {noreply, State}
   end.
 

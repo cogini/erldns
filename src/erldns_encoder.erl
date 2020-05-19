@@ -33,14 +33,16 @@ encode_message(Response) ->
       try dns:encode_message(Response) of
         M -> M
       catch
-        Exception:Reason ->
-          lager:error("Error encoding (response: ~p, exception: ~p, reason: ~p)", [Response, Exception, Reason]),
+        _Exception:Reason ->
+          % erldns_events:notify({?MODULE, encode_message_error, {Exception, Reason, Response}}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => encode, detail => Reason, message => Response}),
           encode_message(build_error_response(Response))
       end
   end.
 
-%% @doc Encode the DNS message into its binary representation. Use the
-%% Opts argument to pass in encoding options.
+%% @doc Encode the DNS message into its binary representation.
+%%
+%% Use the Opts argument to pass in encoding options.
 %%
 %% Note that if the erldns catch_exceptions property is set in the
 %% configuration, then this function should never throw an
@@ -58,7 +60,8 @@ encode_message(Response, Opts) ->
         M -> M
       catch
         Exception:Reason ->
-          lager:error("Error encoding with truncation (response: ~p, exception: ~p, reason: ~p)", [Response, Exception, Reason]),
+          % erldns_events:notify({?MODULE, encode_message_error, {Exception, Reason, Response, Opts}}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => encode, detail => Reason, message => Response, opts => Opts}),
           {false, encode_message(build_error_response(Response))}
       end
   end.

@@ -15,6 +15,7 @@
 %% @doc Worker module that processes a single DNS packet.
 -module(erldns_worker_process).
 
+-include_lib("kernel/include/logger.hrl").
 -include_lib("dns_erlang/include/dns.hrl").
 
 -behaviour(gen_server).
@@ -55,6 +56,7 @@ handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
   telemetry:execute([erldns, handle, start], #{count => 1}, #{host => Address}),
   Response = erldns_handler:handle(DecodedMessage, {tcp, Address}),
   telemetry:execute([erldns, handle, 'end'], #{count => 1}, #{host => Address}),
+
   EncodedMessage = erldns_encoder:encode_message(Response),
   send_tcp_message(Socket, EncodedMessage),
   {reply, ok, State};
@@ -70,13 +72,15 @@ handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) 
 
   case erldns_encoder:encode_message(Response, [{'max_size', max_payload_size(Response)}]) of
     {false, EncodedMessage} ->
-      %lager:debug("Sending encoded response to ~p", [DestHost]),
+      % ?LOG_DEBUG("Sending encoded response to ~p", [DestHost]),
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
     {true, EncodedMessage, Message} when is_record(Message, dns_message)->
+      telemetry:execute([erldns, truncated], #{count => 1}, #{host => Host, response => Response}),
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
     {false, EncodedMessage, _TsigMac} ->
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
     {true, EncodedMessage, _TsigMac, _Message} ->
+      telemetry:execute([erldns, truncated], #{count => 1}, #{host => Host, response => Response}),
       gen_udp:send(Socket, DestHost, Port, EncodedMessage)
   end,
   {reply, ok, State}.
@@ -113,7 +117,7 @@ max_payload_size(Message) ->
 %simulate_timeout(DecodedMessage) ->
   %[Question] = DecodedMessage#dns_message.questions,
   %Name = Question#dns_query.name,
-  %lager:info("qname: ~p", [Name]),
+  % ?LOG_INFO("qname: ~p", [Name]),
   %case Name of
     %<<"www.example.com">> ->
       %timer:sleep(3000);

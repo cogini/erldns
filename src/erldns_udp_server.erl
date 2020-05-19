@@ -16,6 +16,8 @@
 -module(erldns_udp_server).
 -behavior(gen_server).
 
+-include_lib("kernel/include/logger.hrl").
+
 % API
 -export([start_link/2, start_link/4, start_link/5, is_running/0]).
 
@@ -80,8 +82,7 @@ handle_info(timeout, State) ->
   {noreply, State};
 handle_info({udp, Socket, Host, Port, Bin}, State) ->
   telemetry:execute([erldns, request], #{count => 1}, #{proto => udp}),
-  {Time, Response} = timer:tc(?MODULE, handle_request, [Socket, Host, Port, Bin, State]),
-  telemetry:execute([erldns, handoff], #{duration => Time}, #{proto => udp}),
+  Response = handle_request(Socket, Host, Port, Bin, State),
   inet:setopts(State#state.socket, [{active, 100}]),
   Response;
 handle_info(_Message, State) ->
@@ -97,26 +98,26 @@ start(Port, InetFamily) ->
   start(erldns_config:get_address(InetFamily), Port, InetFamily).
 
 start(Address, Port, InetFamily) ->
-  lager:info("Starting UDP server (family: ~p, address: ~p, port: ~p)", [InetFamily, Address, Port]),
+  ?LOG_INFO("Starting UDP server (family: ~p, address: ~p, port: ~p)", [InetFamily, Address, Port]),
   case gen_udp:open(Port, [binary, {active, 100}, {reuseaddr, true},
                            {read_packets, 1000}, {ip, Address}, {recbuf, ?DEFAULT_UDP_RECBUF}, InetFamily]) of
     {ok, Socket} ->
-      lager:info("UDP server (family: ~p, address: ~p, socket: ~p)", [InetFamily, Address, Socket]),
+      ?LOG_INFO("UDP server (family: ~p, address: ~p, socket: ~p)", [InetFamily, Address, Socket]),
       {ok, Socket};
     {error, eacces} ->
-      lager:error("Failed to open UDP socket. Need to run as sudo?"),
+      ?LOG_ERROR("Failed to open UDP socket. Need to run as sudo?"),
       {error, eacces}
   end.
 
 start(Address, Port, InetFamily, SocketOpts) ->
-  lager:info("Starting UDP server (family: ~p, address: ~p, port ~p, sockopts: ~p)", [InetFamily, Address, Port, SocketOpts]),
+  ?LOG_INFO("Starting UDP server (family: ~p, address: ~p, port ~p, sockopts: ~p)", [InetFamily, Address, Port, SocketOpts]),
   case gen_udp:open(Port, [{reuseaddr, true}, binary, {active, 100},
                            {read_packets, 1000}, {ip, Address}, {recbuf, ?DEFAULT_UDP_RECBUF}, InetFamily|SocketOpts]) of
     {ok, Socket} ->
-      lager:info("UDP server (family: ~p, address: ~p, socket: ~p, sockopts: ~p)", [InetFamily, Address, Socket, SocketOpts]),
+      ?LOG_INFO("UDP server (family: ~p, address: ~p, socket: ~p, sockopts: ~p)", [InetFamily, Address, Socket, SocketOpts]),
       {ok, Socket};
     {error, eacces} ->
-      lager:error("Failed to open UDP socket. Need to run as sudo?"),
+      ?LOG_ERROR("Failed to open UDP socket. Need to run as sudo?"),
       {error, eacces}
   end.
 
@@ -126,11 +127,13 @@ start(Address, Port, InetFamily, SocketOpts) ->
 handle_request(Socket, Host, Port, Bin, State) ->
   case queue:out(State#state.workers) of
     {{value, Worker}, Queue} ->
-      gen_server:cast(Worker, {udp_query, Socket, Host, Port, Bin}),
+      % gen_server:cast(Worker, {udp_query, Socket, Host, Port, Bin}),
+      {Time, _Response} = timer:tc(gen_server, cast, [Worker, {udp_query, Socket, Host, Port, Bin}]),
+      telemetry:execute([erldns, handoff], #{duration => Time}, #{proto => udp}),
       {noreply, State#state{workers = queue:in(Worker, Queue)}};
     {empty, _Queue} ->
       telemetry:execute([erldns, dropped], #{count => 1}, #{proto => udp}),
-      lager:info("Queue is empty, dropping packet"),
+      % ?LOG_INFO("Queue is empty, dropping packet"),
       {noreply, State}
   end.
 

@@ -33,8 +33,8 @@ decode_message(Bin) ->
       try dns:decode_message(Bin) of
         M -> M
       catch
-        Exception:Reason ->
-          lager:error("Error decoding message (data: ~p, exception: ~p, reason: ~p)", [Bin, Exception, Reason]),
+        _Exception:Reason ->
+          % erldns_events:notify({?MODULE, decode_message_error, {Exception, Reason, Bin}}),
           {formerr, Reason, Bin}
       end
   end.
