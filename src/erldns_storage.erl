@@ -182,7 +182,8 @@ load_zones(Filename) when is_list(Filename) ->
       {ok, length(JsonZones)};
     {error, Reason} ->
       ?LOG_ERROR("Error loading zones from file ~s: ~p", [Filename, Reason]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => failed_zones_load, detail => Reason}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => failed_zones_load, detail => Reason}),
       {err, Reason}
   end.
 
