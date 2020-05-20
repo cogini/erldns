@@ -36,7 +36,7 @@ encode_message(Response) ->
         M -> M
       catch
         Exception:Reason ->
-          % ?LOG_DEBUG("Could not encode message ~p:~p ~p", [Exception, Reason, Response]),
+          ?LOG_DEBUG("Could not encode message ~p:~p ~p", [Exception, Reason, Response]),
           % erldns_events:notify({?MODULE, encode_message_error, {Exception, Reason, Response}}),
           telemetry:execute([erldns, error], #{count => 1}, #{reason => encode, exception => Exception, detail => Reason, message => Response}),
           encode_message(build_error_response(Response))

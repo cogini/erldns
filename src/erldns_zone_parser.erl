@@ -18,6 +18,7 @@
 -behavior(gen_server).
 
 -include_lib("kernel/include/logger.hrl").
+
 -include_lib("dns_erlang/include/dns.hrl").
 -include("erldns.hrl").
 
@@ -228,7 +229,8 @@ try_custom_parsers(Data, [Parser|Rest]) ->
   end.
 
 % Internal converters
-json_record_to_erlang([Name, Type, _Ttl, Data = null, _]) ->
+json_record_to_erlang([Name, Type, _Ttl, Data = null, _] = Record) ->
+  ?LOG_INFO("Null data record: ~p", [Record]),
   % erldns_events:notify({?MODULE, error, {Name, Type, Data, null_data}}),
   telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => null_data, name => Name, type => Type, data => Data}),
   {};
@@ -257,21 +259,23 @@ json_record_to_erlang([Name, <<"NS">>, Ttl, Data, _Context]) ->
               },
      ttl = Ttl};
 
-json_record_to_erlang([Name, Type = <<"A">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"A">>, Ttl, Data, _Context] = Record) ->
   case inet_parse:address(binary_to_list(erldns_config:keyget(<<"ip">>, Data))) of
     {ok, Address} ->
       #dns_rr{name = Name, type = ?DNS_TYPE_A, data = #dns_rrdata_a{ip = Address}, ttl = Ttl};
     {error, Reason} ->
+      ?LOG_ERROR("Could not parse record, invalid IP: ~p", [Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
-json_record_to_erlang([Name, Type = <<"AAAA">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"AAAA">>, Ttl, Data, _Context] = Record) ->
   case inet_parse:address(binary_to_list(erldns_config:keyget(<<"ip">>, Data))) of
     {ok, Address} ->
       #dns_rr{name = Name, type = ?DNS_TYPE_AAAA, data = #dns_rrdata_aaaa{ip = Address}, ttl = Ttl};
     {error, Reason} ->
+      ?LOG_ERROR("Could not parse record, invalid IP: ~p", [Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Reason, name => Name, type => Type, data => Data}),
       {}
@@ -325,7 +329,7 @@ json_record_to_erlang([Name, <<"RP">>, Ttl, Data, _Context]) ->
               },
      ttl = Ttl};
 
-json_record_to_erlang([Name, Type = <<"TXT">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"TXT">>, Ttl, Data, _Context] = Record) ->
   %% This function call may crash. Handle it as a bad record.
   try erldns_txt:parse(erldns_config:keyget(<<"txt">>, Data)) of
     ParsedText ->
@@ -336,6 +340,7 @@ json_record_to_erlang([Name, Type = <<"TXT">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
+      ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Exception, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
@@ -356,7 +361,7 @@ json_record_to_erlang([Name, <<"PTR">>, Ttl, Data, _Context]) ->
      data = #dns_rrdata_ptr{dname = erldns_config:keyget(<<"dname">>, Data)},
      ttl = Ttl};
 
-json_record_to_erlang([Name, Type = <<"SSHFP">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"SSHFP">>, Ttl, Data, _Context] = Record) ->
   %% This function call may crash. Handle it as a bad record.
   try hex_to_bin(erldns_config:keyget(<<"fp">>, Data)) of
     Fp ->
@@ -371,6 +376,7 @@ json_record_to_erlang([Name, Type = <<"SSHFP">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
+      ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Exception, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
@@ -402,7 +408,7 @@ json_record_to_erlang([Name, <<"NAPTR">>, Ttl, Data, _Context]) ->
               },
      ttl = Ttl};
 
-json_record_to_erlang([Name, Type = <<"DS">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"DS">>, Ttl, Data, _Context] = Record) ->
   try hex_to_bin(erldns_config:keyget(<<"digest">>, Data)) of
     Digest ->
       #dns_rr{
@@ -417,12 +423,13 @@ json_record_to_erlang([Name, Type = <<"DS">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
+      ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Exception, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
-json_record_to_erlang([Name, Type = <<"CDS">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"CDS">>, Ttl, Data, _Context] = Record) ->
   try hex_to_bin(erldns_config:keyget(<<"digest">>, Data)) of
     Digest ->
       #dns_rr{
@@ -437,12 +444,13 @@ json_record_to_erlang([Name, Type = <<"CDS">>, Ttl, Data, _Context]) ->
          ttl = Ttl}
   catch
     Exception:Reason ->
+      ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Exception, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
-json_record_to_erlang([Name, Type = <<"DNSKEY">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"DNSKEY">>, Ttl, Data, _Context] = Record) ->
   try base64_to_bin(erldns_config:keyget(<<"public_key">>, Data)) of
     PublicKey ->
       dnssec:add_keytag_to_dnskey(
@@ -458,12 +466,13 @@ json_record_to_erlang([Name, Type = <<"DNSKEY">>, Ttl, Data, _Context]) ->
            ttl = Ttl})
   catch
     Exception:Reason ->
+      ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Exception, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
-json_record_to_erlang([Name, Type = <<"CDNSKEY">>, Ttl, Data, _Context]) ->
+json_record_to_erlang([Name, Type = <<"CDNSKEY">>, Ttl, Data, _Context] = Record) ->
   try base64_to_bin(erldns_config:keyget(<<"public_key">>, Data)) of
     PublicKey ->
       dnssec:add_keytag_to_cdnskey(
@@ -479,6 +488,7 @@ json_record_to_erlang([Name, Type = <<"CDNSKEY">>, Ttl, Data, _Context]) ->
            ttl = Ttl})
   catch
     Exception:Reason ->
+      ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
       % erldns_events:notify({?MODULE, error, {Name, Type, Data, Exception, Reason}}),
       telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}

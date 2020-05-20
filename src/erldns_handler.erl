@@ -108,7 +108,7 @@ handle(Message, Context = {_, Host}) when is_record(Message, dns_message) ->
 handle(Message, {_, Host}) ->
   % ?LOG_DEBUG("Bad message from host ~p: ~p", [Host, Message]),
   % erldns_events:notify({?MODULE, bad_message, {Message, Host}}),
-  telemetry:execute([erldns, error], #{count => 1}, #{reason => bad_message, message => Message, host => Host}),
+  telemetry:execute([erldns, invalid], #{count => 1}, #{reason => bad_message, message => Message, host => Host}),
   Message.
 
 %% We throttle ANY queries to discourage use of our authoritative name servers
@@ -185,7 +185,7 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
         Exception:Reason ->
           % ?LOG_ERROR("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
           % erldns_events:notify({?MODULE, resolve_error, {Exception, Reason, Message, Stacktrace}}),
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, exception => Exception, detail => Reason, host => Host, message => Message}),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => resolve, exception => Exception, detail => Reason, host => Host, message => Message}),
           Message#dns_message{aa = false, rc = ?DNS_RCODE_SERVFAIL}
       end
   end.
@@ -219,10 +219,12 @@ complete_response(Message) ->
 notify_empty_response(Message) ->
   case {Message#dns_message.rc, Message#dns_message.anc + Message#dns_message.auc + Message#dns_message.adc} of
     {?DNS_RCODE_REFUSED, _} ->
+      % ?LOG_DEBUG("Refused response: questions: ~p)", [Questions]),
       % erldns_events:notify({?MODULE, refused_response, Message#dns_message.questions}),
       telemetry:execute([erldns, refused], #{count => 1}, #{message => Message}),
       Message;
     {_, 0} ->
+      % ?LOG_DEBUG("Empty response: questions: ~p)", [Questions]),
       % erldns_events:notify({?MODULE, empty_response, Message}),
       telemetry:execute([erldns, empty], #{count => 1}, #{message => Message}),
       Message;

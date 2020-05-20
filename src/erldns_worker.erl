@@ -57,8 +57,10 @@ handle_cast({tcp_query, Socket, Bin}, State) ->
       {Id, _, Type, Modules} = State#state.worker_process,
       {noreply, State#state{worker_process = {Id, NewWorkerPid, Type, Modules}}};
     Error ->
-      % erldns_events:notify({?MODULE, handle_tcp_query_Error, {Error}}),
-      telemetry:execute([erldns, error], #{count => 1}, #{reason => handle, detail => Error, bin => Bin, proto => tcp}),
+      % ?LOG_DEBUG("Error handling query: ~p", [Error]),
+      % erldns_events:notify({?MODULE, handle_tcp_query_error, {Error}}),
+      telemetry:execute([erldns, error], #{count => 1},
+                        #{reason => handle, detail => Error, bin => Bin, proto => tcp}),
       {noreply, State}
   end;
 handle_cast({udp_query, Socket, Host, Port, Bin}, State) ->
@@ -70,8 +72,10 @@ handle_cast({udp_query, Socket, Host, Port, Bin}, State) ->
       {Id, _, Type, Modules} = State#state.worker_process,
       {noreply, State#state{worker_process = {Id, NewWorkerPid, Type, Modules}}};
     Error ->
+      % ?LOG_DEBUG("Error handling query (address: ~p): ~p", [Host, Error]),
       % erldns_events:notify({?MODULE, handle_udp_query_error, {Error}}),
-      telemetry:execute([erldns, error], #{count => 1}, #{reason => handle, detail => Error, host => Host, port => Port, bin => Bin, proto => udp}),
+      telemetry:execute([erldns, error], #{count => 1},
+                        #{reason => handle, detail => Error, host => Host, port => Port, bin => Bin, proto => udp}),
       {noreply, State}
   end;
 handle_cast(_Msg, State) ->
@@ -87,36 +91,48 @@ code_change(_OldVsn, State, _Extra) ->
 -spec handle_tcp_dns_query(gen_tcp:socket(), iodata(), {pid(), term()}) -> ok | {error, timeout} | {error, timeout, pid()}.
 handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerProcess}) ->
   case inet:peername(Socket) of
-    {ok, {Address, _Port}} ->
+    {ok, {Address, Port}} ->
       % erldns_events:notify({?MODULE, start_tcp, [{host, Address}]}),
-      telemetry:execute([erldns, worker, start], #{count => 1}, #{host => Address, proto => tcp}),
+      telemetry:execute([erldns, worker, start], #{count => 1},
+                        #{host => Address, port => Port, proto => tcp}),
       Result = case Bin of
-        <<>> -> ok;
+        <<>> ->
+            % ?LOG_DEBUG("Received empty request (address: ~p)", [Address]),
+            telemetry:execute([erldns, invalid], #{count => 1},
+                              #{reason => empty, host => Address, port => Port}),
+            ok;
         _ ->
           case erldns_decoder:decode_message(Bin) of
             {truncated, DecodedMessage, Rest} ->
               % ?LOG_DEBUG("Received truncated request (address: ~p)", [Address]),
-              telemetry:execute([erldns, invalid], #{count => 1}, #{reason => truncated, host => Address, bin => Bin, message => DecodedMessage, rest => Rest}),
+              telemetry:execute([erldns, invalid], #{count => 1},
+                                #{reason => truncated, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             {trailing_garbage, DecodedMessage, Rest} ->
+              % ?LOG_DEBUG("Received traling garbage (address: ~p) ~p ~p", [Address, DecodedMessage, Rest]),
               % erldns_events:notify({?MODULE, decode_message_trailing_garbage, {DecodedMessage, TrailingGarbage}}),
-              telemetry:execute([erldns, invalid], #{count => 1}, #{reason => trailing_garbage, host => Address, bin => Bin, message => DecodedMessage, rest => Rest}),
+              telemetry:execute([erldns, invalid], #{count => 1},
+                                #{reason => trailing_garbage, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess});
             {formerr, DecodedMessage, Rest} ->
+              % ?LOG_DEBUG("Received invalid request (address: ~p) ~p ~p", [Address, DecodedMessage, Rest]),
               % erldns_events:notify({?MODULE, decode_message_error, {Error, Message}}),
-              telemetry:execute([erldns, invalid], #{count => 1}, #{reason => formerr, host => Address, bin => Bin, message => DecodedMessage, rest => Rest}),
+              telemetry:execute([erldns, invalid], #{count => 1},
+                                #{reason => formerr, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             DecodedMessage ->
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
       % erldns_events:notify({?MODULE, end_tcp, [{host, Address}]}),
-      telemetry:execute([erldns, worker, 'end'], #{count => 1}, #{host => Address, proto => tcp}),
+      telemetry:execute([erldns, worker, 'end'], #{count => 1},
+                        #{host => Address, proto => tcp}),
       gen_tcp:close(Socket),
       Result;
     {error, Reason} ->
       % erldns_events:notify({?MODULE, tcp_error, Reason})
-      telemetry:execute([erldns, worker, error], #{count => 1}, #{reason => Reason, proto => tcp})
+      telemetry:execute([erldns, invalid], #{count => 1},
+                        #{reason => tcp, detail => Reason, proto => tcp})
   end;
 
 handle_tcp_dns_query(Socket, BadPacket, _) ->
@@ -133,12 +149,14 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
       catch
         exit:{timeout, _} ->
           % erldns_events:notify({?MODULE, timeout, {tcp, DecodedMessage}}),
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => timeout, host => Address, message => DecodedMessage}),
+          telemetry:execute([erldns, error], #{count => 1},
+                            #{reason => timeout, host => Address, message => DecodedMessage}),
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
           % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           % erldns_events:notify({?MODULE, process_crashed, {tcp, Error, Reason, DecodedMessage}}),
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Address, message => DecodedMessage}),
+          telemetry:execute([erldns, error], #{count => 1},
+                            #{reason => handle, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
           {error, {Error, Reason}}
       end;
     true ->
@@ -158,22 +176,24 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
   telemetry:execute([erldns, worker, start], #{count => 1}, #{host => Host, port => Port, proto => udp}),
   Result = case erldns_decoder:decode_message(Bin) of
     {trailing_garbage, DecodedMessage, Rest} ->
+      % ?LOG_DEBUG("Received traling garbage (address: ~p) ~p ~p", [host, DecodedMessage, Rest]),
       % erldns_events:notify({?MODULE, decode_message_trailing_garbage, {DecodedMessage, TrailingGarbage}}),
       % Invalid but not final disposition
       telemetry:execute([erldns, garbage], #{count => 1}, #{reason => trailing_garbage, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess});
     {formerr, DecodedMessage, Rest} ->
+      % ?LOG_DEBUG("Received invalid request (address: ~p) ~p ~p", [Host, DecodedMessage, Rest]),
       % erldns_events:notify({?MODULE, decode_message_error, {Error, Message}}),
       telemetry:execute([erldns, invalid], #{count => 1}, #{reason => formerr, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
     {truncated, DecodedMessage, Rest} ->
+      % ?LOG_DEBUG("Received truncated request (address: ~p) ~p ~p", [Host, DecodedMessage, Rest]),
       % erldns_events:notify({?MODULE, decode_message_error, {Error, Message}}),
       telemetry:execute([erldns, invalid], #{count => 1}, #{reason => truncated, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
     DecodedMessage ->
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess})
   end,
-  % TODO: this should log the result
   telemetry:execute([erldns, worker, 'end'], #{count => 1}, #{host => Host, proto => udp}),
   Result.
 
