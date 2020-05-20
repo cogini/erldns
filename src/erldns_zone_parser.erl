@@ -229,7 +229,7 @@ try_custom_parsers(Data, [Parser|Rest]) ->
 
 % Internal converters
 json_record_to_erlang([Name, Type, _Ttl, Data = null, _] = Record) ->
-  ?LOG_ERROR("Null data record: ~p", [Record]),
+  ?LOG_DEBUG("Null data record: ~p", [Record]),
   telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => null_data, name => Name, type => Type, data => Data}),
   {};
 
