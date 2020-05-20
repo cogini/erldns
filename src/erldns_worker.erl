@@ -119,7 +119,7 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
-      telemetry:execute([erldns, worker, 'end'], #{count => 1},
+      telemetry:execute([erldns, worker, stop], #{count => 1},
                         #{host => Address, proto => tcp}),
       gen_tcp:close(Socket),
       Result;
@@ -152,7 +152,8 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
     true ->
       % Response (1)
       % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
-      telemetry:execute([erldns, invalid], #{count => 1}, #{reason => qr, host => Address, message => DecodedMessage}),
+      telemetry:execute([erldns, invalid], #{count => 1},
+                        #{reason => qr, host => Address, message => DecodedMessage}),
       % {error, not_a_question}
       ok
   end.
@@ -167,20 +168,23 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
     {trailing_garbage, DecodedMessage, Rest} ->
       % ?LOG_DEBUG("Received traling garbage (address: ~p) ~p ~p", [host, DecodedMessage, Rest]),
       % Invalid but not final disposition
-      telemetry:execute([erldns, garbage], #{count => 1}, #{reason => trailing_garbage, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
+      telemetry:execute([erldns, garbage], #{count => 1},
+                        #{reason => trailing_garbage, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess});
     {formerr, DecodedMessage, Rest} ->
       % ?LOG_DEBUG("Received invalid request (address: ~p) ~p ~p", [Host, DecodedMessage, Rest]),
-      telemetry:execute([erldns, invalid], #{count => 1}, #{reason => formerr, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
+      telemetry:execute([erldns, invalid], #{count => 1},
+                        #{reason => formerr, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
     {truncated, DecodedMessage, Rest} ->
       % ?LOG_DEBUG("Received truncated request (address: ~p) ~p ~p", [Host, DecodedMessage, Rest]),
-      telemetry:execute([erldns, invalid], #{count => 1}, #{reason => truncated, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
+      telemetry:execute([erldns, invalid], #{count => 1},
+                        #{reason => truncated, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
     DecodedMessage ->
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess})
   end,
-  telemetry:execute([erldns, worker, 'end'], #{count => 1}, #{host => Host, proto => udp}),
+  telemetry:execute([erldns, worker, stop], #{count => 1}, #{host => Host, port => Port, proto => udp}),
   Result.
 
 -spec handle_decoded_udp_message(dns:message(), gen_udp:socket(), gen_udp:ip(), inet:port_number(), {pid(), term()}) ->
@@ -193,17 +197,20 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
         _ -> ok
       catch
         exit:{timeout, _} ->
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => timeout, host => Host, message => DecodedMessage}),
+          telemetry:execute([erldns, error], #{count => 1},
+                            #{reason => timeout, host => Host, port => Port, message => DecodedMessage}),
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
           % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Host, message => DecodedMessage}),
+          telemetry:execute([erldns, error], #{count => 1},
+                            #{reason => exception, detail => Reason, host => Host, port => Port, message => DecodedMessage}),
           {error, {Error, Reason}}
       end;
     true ->
       % Response (1)
       % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
-      telemetry:execute([erldns, invalid], #{count => 1}, #{reason => qr, host => Host, message => DecodedMessage}),
+      telemetry:execute([erldns, invalid], #{count => 1},
+                        #{reason => qr, host => Host, message => DecodedMessage}),
       % {error, not_a_question}
       ok
   end.
@@ -221,6 +228,7 @@ handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId) ->
     {ok, NewChild, _Info} ->
       {error, timeout, NewChild};
     {error, Error} ->
-      telemetry:execute([erldns, error], #{count => 1}, #{reason => restart_failed, detail => Error, message => DecodedMessage}),
+      telemetry:execute([erldns, error], #{count => 1},
+                        #{reason => restart_failed, detail => Error, message => DecodedMessage}),
       {error, timeout}
   end.

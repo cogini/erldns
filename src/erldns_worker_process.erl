@@ -51,9 +51,11 @@ init(_Args) ->
 handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
   simulate_timeout(DecodedMessage),
 
-  telemetry:execute([erldns, handle, start], #{count => 1}, #{host => Address}),
+  telemetry:execute([erldns, process, start], #{count => 1},
+                    #{host => Address, proto => udp}),
   Response = erldns_handler:handle(DecodedMessage, {tcp, Address}),
-  telemetry:execute([erldns, handle, 'end'], #{count => 1}, #{host => Address}),
+  telemetry:execute([erldns, process, stop], #{count => 1},
+                    #{host => Address, proto => udp}),
 
   EncodedMessage = erldns_encoder:encode_message(Response),
   send_tcp_message(Socket, EncodedMessage),
@@ -63,7 +65,11 @@ handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
 handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) ->
   simulate_timeout(DecodedMessage),
 
+  telemetry:execute([erldns, process, start], #{count => 1},
+                    #{host => Host, port => Port, proto => udp}),
   Response = erldns_handler:handle(DecodedMessage, {udp, Host}),
+  telemetry:execute([erldns, process, stop], #{count => 1},
+                    #{host => Host, port => Port, proto => udp}),
   DestHost = ?DEST_HOST(Host),
 
   case erldns_encoder:encode_message(Response, [{'max_size', max_payload_size(Response)}]) of
@@ -71,12 +77,14 @@ handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) 
       % ?LOG_DEBUG("Sending encoded response to ~p", [DestHost]),
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
     {true, EncodedMessage, Message} when is_record(Message, dns_message)->
-      telemetry:execute([erldns, truncated], #{count => 1}, #{host => Host, response => Response}),
+      telemetry:execute([erldns, truncated], #{count => 1},
+                        #{host => Host, port => Port, response => Response}),
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
     {false, EncodedMessage, _TsigMac} ->
       gen_udp:send(Socket, DestHost, Port, EncodedMessage);
     {true, EncodedMessage, _TsigMac, _Message} ->
-      telemetry:execute([erldns, truncated], #{count => 1}, #{host => Host, response => Response}),
+      telemetry:execute([erldns, truncated], #{count => 1},
+                        #{host => Host, port => Port, response => Response}),
       gen_udp:send(Socket, DestHost, Port, EncodedMessage)
   end,
   {reply, ok, State}.

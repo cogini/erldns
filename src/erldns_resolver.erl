@@ -539,7 +539,8 @@ requires_additional_processing([Answer|Rest], RequiresAdditional) ->
 check_dnssec(Message, Host, Question) ->
   case proplists:get_bool(dnssec, erldns_edns:get_opts(Message)) of
     true ->
-      telemetry:execute([erldns, dnssec, request], #{count => 1}, #{host => Host, question => Question});
+      telemetry:execute([erldns, dnssec, request], #{count => 1},
+                        #{host => Host, question => Question});
     false ->
       ok
   end.
