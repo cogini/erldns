@@ -15,16 +15,16 @@
 %% @doc Functions related to TXT record parsing.
 -module(erldns_txt).
 
+-ifdef(TEST).
+-include_lib("proper/include/proper.hrl").
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -include("erldns.hrl").
 
 -export([parse/1]).
 
 -define(MAX_TXT_SIZE, 255).
-
--ifdef(TEST).
--include_lib("proper/include/proper.hrl").
--include_lib("eunit/include/eunit.hrl").
--endif.
 
 % Public API
 

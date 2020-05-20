@@ -19,6 +19,10 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -include_lib("dns_erlang/include/dns.hrl").
 -include("erldns.hrl").
 
@@ -41,10 +45,6 @@
 
 -define(SERVER, ?MODULE).
 -define(PARSE_TIMEOUT, 30 * 1000).
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
 
 -record(state, {parsers}).
 

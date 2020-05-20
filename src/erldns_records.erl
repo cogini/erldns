@@ -15,11 +15,12 @@
 %% Functions related to DNS records.
 -module(erldns_records).
 
--include("erldns.hrl").
--include_lib("dns_erlang/include/dns.hrl").
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
+
+-include("erldns.hrl").
+-include_lib("dns_erlang/include/dns.hrl").
 
 -export([optionally_convert_wildcard/2, wildcard_qname/1]).
 -export([default_ttl/1, default_priority/1, name_type/1, root_hints/0]).

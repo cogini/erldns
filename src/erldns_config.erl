@@ -15,6 +15,10 @@
 %% @doc Provide application-wide configuration access.
 -module(erldns_config).
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -export([
          get_servers/0,
          get_address/1,
@@ -61,10 +65,6 @@
          keyget/2,
          keyget/3
         ]).
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
 
 -define(DEFAULT_IPV4_ADDRESS, {127,0,0,1}).
 -define(DEFAULT_IPV6_ADDRESS, {0,0,0,0,0,0,0,1}).
