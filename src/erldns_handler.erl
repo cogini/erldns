@@ -127,7 +127,8 @@ handle(Message, Host, {throttled, Host, ReqCount}) ->
 %% by filling out count-related header fields.
 handle(Message, Host, _) ->
   % ?LOG_DEBUG("Questions: ~p", [Message#dns_message.questions]),
-  % telemetry:execute([erldns, handle, start], #{count => 1}, #{host => Host, message => Message}),
+  % telemetry:execute([erldns, handle, start], #{count => 1},
+  %                   #{host => Host, message => Message}),
   {Time, Response} = timer:tc(?MODULE, do_handle, [Message, Host]),
   telemetry:execute([erldns, handled], #{duration => Time},
                     #{host => Host, message => Message, response => Response}),
