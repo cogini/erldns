@@ -29,8 +29,6 @@
          code_change/3
         ]).
 
--define(SIMULATE_TIMEOUT, false).
-
 -define(MAX_PACKET_SIZE, 512).
 -define(REDIRECT_TO_LOOPBACK, false).
 -define(LOOPBACK_DEST, {127, 0, 0, 10}).
@@ -63,9 +61,7 @@ handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
 
 % Process a UDP request. May truncate the response.
 handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) ->
-  % Uncomment this and the function implementation to simulate a timeout when
-  % querying www.example.com with the test zones
-  % simulate_timeout(DecodedMessage),
+  simulate_timeout(DecodedMessage),
 
   Response = erldns_handler:handle(DecodedMessage, {udp, Host}),
   DestHost = ?DEST_HOST(Host),
@@ -114,7 +110,7 @@ max_payload_size(Message) ->
     _ -> ?MAX_PACKET_SIZE
   end.
 
--if(?SIMULATE_TIMEOUT).
+-ifdef(SIMULATE_TIMEOUT).
 % Optionally simulate a timeout when querying www.example.com with the test zones
 simulate_timeout(DecodedMessage) ->
   [Question] = DecodedMessage#dns_message.questions,
