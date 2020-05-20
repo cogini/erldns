@@ -184,7 +184,8 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
     DecodedMessage ->
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess})
   end,
-  telemetry:execute([erldns, worker, stop], #{count => 1}, #{host => Host, port => Port, proto => udp}),
+  telemetry:execute([erldns, worker, stop], #{count => 1},
+                    #{host => Host, port => Port, proto => udp}),
   Result.
 
 -spec handle_decoded_udp_message(dns:message(), gen_udp:socket(), gen_udp:ip(), inet:port_number(), {pid(), term()}) ->
