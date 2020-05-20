@@ -37,7 +37,8 @@ load_zones() ->
             case erldns_zone_cache:put_zone(Zone) of
               {error, Reason} ->
                 ?LOG_ERROR("Put zone error ~p: ~p", [Zone, Reason]),
-                telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => put_zone_error, detail => Reason, zone => JsonZone});
+                telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                                  #{reason => put_zone_error, detail => Reason, zone => JsonZone});
               _ ->
                 ok
             end
@@ -46,7 +47,8 @@ load_zones() ->
       {ok, length(JsonZones)};
     {error, Reason} ->
       ?LOG_ERROR("Could not load zones from file ~s: ~p", [filename(), Reason]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => read_file_error, detail => Reason}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => read_file_error, detail => Reason}),
       {err, Reason}
   end.
 
