@@ -106,6 +106,7 @@ handle(Message, Context = {_, Host}) when is_record(Message, dns_message) ->
 %% The message was bad so just return it.
 %% TODO: consider just throwing away the message
 handle(Message, {_, Host}) ->
+  % ?LOG_DEBUG("Bad message from host ~p: ~p", [Host, Message]),
   % erldns_events:notify({?MODULE, bad_message, {Message, Host}}),
   telemetry:execute([erldns, error], #{count => 1}, #{reason => bad_message, message => Message, host => Host}),
   Message.
@@ -116,6 +117,7 @@ handle(Message, {_, Host}) ->
 %% Note: this should probably be changed to return the original packet without
 %% any answer data and with TC bit set to 1.
 handle(Message, Host, {throttled, Host, ReqCount}) ->
+  % ?LOG_DEBUG("Throttled message from host ~p: ~p", [Host, Message]),
   telemetry:execute([erldns, throttled], #{count => 1}, #{host => Host, count => ReqCount}),
   Message#dns_message{tc = true, aa = true, rc = ?DNS_RCODE_NOERROR};
 
@@ -181,9 +183,9 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
         Response -> maybe_cache_packet(Response, Response#dns_message.aa)
       catch
         Exception:Reason ->
+          % ?LOG_ERROR("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
           % erldns_events:notify({?MODULE, resolve_error, {Exception, Reason, Message, Stacktrace}}),
-          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Host, message => Message}),
-          ?LOG_ERROR("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
+          telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, exception => Exception, detail => Reason, host => Host, message => Message}),
           Message#dns_message{aa = false, rc = ?DNS_RCODE_SERVFAIL}
       end
   end.

@@ -228,6 +228,7 @@ encode_data({dns_rrdata_cdnskey, Flags, Protocol, Alg, Key, KeyTag}) ->
 encode_data({dns_rrdata_rrsig, TypeCovered, Alg, Labels, OriginalTtl, Expiration, Inception, KeyTag, SignersName, Signature}) ->
   erlang:iolist_to_binary(io_lib:format("~w ~w ~w ~w ~w ~w ~w ~w ~s", [TypeCovered, Alg, Labels, OriginalTtl, Expiration, Inception, KeyTag, SignersName, Signature]));
 encode_data(Data) ->
+  ?LOG_ERROR("Unsupported rrdata type: ~p", [Data]),
   % erldns_events:notify({?MODULE, unsupported_rrdata_type, Data}),
   telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => unsupported_rrdata_type, detail => Data}),
   {}.

@@ -132,8 +132,8 @@ handle_request(Socket, Host, Port, Bin, State) ->
       telemetry:execute([erldns, handoff], #{duration => Time}, #{proto => udp}),
       {noreply, State#state{workers = queue:in(Worker, Queue)}};
     {empty, _Queue} ->
+      % ?LOG_DEBUG("Queue is empty, dropping packet"),
       telemetry:execute([erldns, dropped], #{count => 1}, #{proto => udp}),
-      % ?LOG_INFO("Queue is empty, dropping packet"),
       {noreply, State}
   end.
 

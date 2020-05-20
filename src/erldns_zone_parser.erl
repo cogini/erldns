@@ -130,6 +130,7 @@ json_to_erlang([{<<"name">>, Name}, {<<"sha">>, Sha}, {<<"records">>, JsonRecord
                         {} ->
                           case try_custom_parsers(Data, Parsers) of
                             {} ->
+                              ?LOG_ERROR("Unsupported record: ~p", [Data]),
                               % erldns_events:notify({?MODULE, unsupported_record, Data}),
                               telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => unsupported_record, data => Data}),
                               {};

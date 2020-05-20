@@ -29,6 +29,8 @@
          code_change/3
         ]).
 
+-define(SIMULATE_TIMEOUT, false).
+
 -define(MAX_PACKET_SIZE, 512).
 -define(REDIRECT_TO_LOOPBACK, false).
 -define(LOOPBACK_DEST, {127, 0, 0, 10}).
@@ -49,9 +51,7 @@ init(_Args) ->
 
 % Process a TCP request. Does not truncate the response.
 handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
-  % Uncomment this and the function implementation to simulate a timeout when
-  % querying www.example.com with the test zones
-  % simulate_timeout(DecodedMessage),
+  simulate_timeout(DecodedMessage),
 
   telemetry:execute([erldns, handle, start], #{count => 1}, #{host => Address}),
   Response = erldns_handler:handle(DecodedMessage, {tcp, Address}),
@@ -114,13 +114,19 @@ max_payload_size(Message) ->
     _ -> ?MAX_PACKET_SIZE
   end.
 
-%simulate_timeout(DecodedMessage) ->
-  %[Question] = DecodedMessage#dns_message.questions,
-  %Name = Question#dns_query.name,
-  % ?LOG_INFO("qname: ~p", [Name]),
-  %case Name of
-    %<<"www.example.com">> ->
-      %timer:sleep(3000);
-    %_ ->
-      %ok
-  %end.
+-if(?SIMULATE_TIMEOUT).
+% Optionally simulate a timeout when querying www.example.com with the test zones
+simulate_timeout(DecodedMessage) ->
+  [Question] = DecodedMessage#dns_message.questions,
+  Name = Question#dns_query.name,
+   ?LOG_DEBUG("qname: ~p", [Name]),
+  case Name of
+    <<"www.example.com">> ->
+      timer:sleep(3000);
+    _ ->
+      ok
+  end.
+-else.
+simulate_timeout(_DecodedMessage) ->
+    ok.
+-endif.

@@ -95,8 +95,8 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
         _ ->
           case erldns_decoder:decode_message(Bin) of
             {truncated, DecodedMessage, Rest} ->
-              telemetry:execute([erldns, invalid], #{count => 1}, #{reason => truncated, host => Address, bin => Bin, message => DecodedMessage, rest => Rest}),
               % ?LOG_DEBUG("Received truncated request (address: ~p)", [Address]),
+              telemetry:execute([erldns, invalid], #{count => 1}, #{reason => truncated, host => Address, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             {trailing_garbage, DecodedMessage, Rest} ->
               % erldns_events:notify({?MODULE, decode_message_trailing_garbage, {DecodedMessage, TrailingGarbage}}),
@@ -136,15 +136,15 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
           telemetry:execute([erldns, error], #{count => 1}, #{reason => timeout, host => Address, message => DecodedMessage}),
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
+          % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           % erldns_events:notify({?MODULE, process_crashed, {tcp, Error, Reason, DecodedMessage}}),
           telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Address, message => DecodedMessage}),
-          % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           {error, {Error, Reason}}
       end;
     true ->
       % Response (1)
+      % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
       telemetry:execute([erldns, invalid], #{count => 1}, #{reason => qr, host => Address, message => DecodedMessage}),
-      % ?LOG_INFO("Dropping request that is not a question"),
       % {error, not_a_question}
       ok
   end.
@@ -191,25 +191,25 @@ handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup
           telemetry:execute([erldns, error], #{count => 1}, #{reason => timeout, host => Host, message => DecodedMessage}),
           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
         Error:Reason ->
+          % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           % erldns_events:notify({?MODULE, process_crashed, {udp, Error, Reason, DecodedMessage}}),
           telemetry:execute([erldns, error], #{count => 1}, #{reason => exception, detail => Reason, host => Host, message => DecodedMessage}),
-          % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           {error, {Error, Reason}}
       end;
     true ->
       % Response (1)
+      % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
       telemetry:execute([erldns, invalid], #{count => 1}, #{reason => qr, host => Host, message => DecodedMessage}),
-      % ?LOG_INFO("Dropping request that is not a question"),
       % {error, not_a_question}
       ok
   end.
 
 -spec handle_timeout(dns:message(), pid(), term()) -> {error, timeout, term()} | {error, timeout}.
 handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId) ->
-  ?LOG_DEBUG("Worker timeout (message: ~p)", [DecodedMessage]),
+  % ?LOG_DEBUG("Worker timeout (message: ~p)", [DecodedMessage]),
 
-  TerminateResult = supervisor:terminate_child(WorkerProcessSup, WorkerProcessId),
-  ?LOG_DEBUG("Terminate result: ~p", [TerminateResult]),
+  _TerminateResult = supervisor:terminate_child(WorkerProcessSup, WorkerProcessId),
+  % ?LOG_DEBUG("Terminate result: ~p", [TerminateResult]),
 
   case supervisor:restart_child(WorkerProcessSup, WorkerProcessId) of
     {ok, NewChild} ->

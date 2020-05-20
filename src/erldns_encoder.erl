@@ -16,6 +16,8 @@
 %% system crash.
 -module(erldns_encoder).
 
+-include_lib("kernel/include/logger.hrl").
+
 -include_lib("dns_erlang/include/dns_records.hrl").
 
 -export([encode_message/1, encode_message/2]).
@@ -34,6 +36,7 @@ encode_message(Response) ->
         M -> M
       catch
         Exception:Reason ->
+          % ?LOG_DEBUG("Could not encode message ~p:~p ~p", [Exception, Reason, Response]),
           % erldns_events:notify({?MODULE, encode_message_error, {Exception, Reason, Response}}),
           telemetry:execute([erldns, error], #{count => 1}, #{reason => encode, exception => Exception, detail => Reason, message => Response}),
           encode_message(build_error_response(Response))
@@ -60,6 +63,7 @@ encode_message(Response, Opts) ->
         M -> M
       catch
         Exception:Reason ->
+          % ?LOG_DEBUG("Could not encode message ~p:~p ~p ~p", [Exception, Reason, Opts, Response]),
           % erldns_events:notify({?MODULE, encode_message_error, {Exception, Reason, Response, Opts}}),
           telemetry:execute([erldns, error], #{count => 1}, #{reason => encode_message, exception => Exception, detail => Reason, message => Response, opts => Opts}),
           {false, encode_message(build_error_response(Response))}
