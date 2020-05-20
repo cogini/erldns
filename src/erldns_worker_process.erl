@@ -52,10 +52,12 @@ handle_call({process, DecodedMessage, Socket, {tcp, Address}}, _From, State) ->
   simulate_timeout(DecodedMessage),
 
   telemetry:execute([erldns, process, start], #{count => 1},
-                    #{host => Address, proto => udp}),
-  Response = erldns_handler:handle(DecodedMessage, {tcp, Address}),
-  telemetry:execute([erldns, process, stop], #{count => 1},
-                    #{host => Address, proto => udp}),
+                    #{host => Address, proto => tcp}),
+
+  % Response = erldns_handler:handle(DecodedMessage, {tcp, Address}),
+  {Time, Response} = timer:tc(erldns_handler, handle, [DecodedMessage, {tcp, Address}]),
+  telemetry:execute([erldns, process, stop], #{duration => Time},
+                    #{host => Address, proto => tcp}),
 
   EncodedMessage = erldns_encoder:encode_message(Response),
   send_tcp_message(Socket, EncodedMessage),
@@ -67,9 +69,12 @@ handle_call({process, DecodedMessage, Socket, Port, {udp, Host}}, _From, State) 
 
   telemetry:execute([erldns, process, start], #{count => 1},
                     #{host => Host, port => Port, proto => udp}),
-  Response = erldns_handler:handle(DecodedMessage, {udp, Host}),
-  telemetry:execute([erldns, process, stop], #{count => 1},
+
+  % Response = erldns_handler:handle(DecodedMessage, {udp, Host}),
+  {Time, Response} = timer:tc(erldns_handler, handle, [DecodedMessage, {udp, Host}]),
+  telemetry:execute([erldns, process, stop], #{duration => Time},
                     #{host => Host, port => Port, proto => udp}),
+
   DestHost = ?DEST_HOST(Host),
 
   case erldns_encoder:encode_message(Response, [{'max_size', max_payload_size(Response)}]) of
