@@ -34,7 +34,6 @@ decode_message(Bin) ->
         M -> M
       catch
         _Exception:Reason ->
-          % erldns_events:notify({?MODULE, decode_message_error, {Exception, Reason, Bin}}),
           {formerr, Reason, Bin}
       end
   end.

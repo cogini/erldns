@@ -107,7 +107,6 @@ handle(Message, Context = {_, Host}) when is_record(Message, dns_message) ->
 %% TODO: consider just throwing away the message
 handle(Message, {_, Host}) ->
   % ?LOG_DEBUG("Bad message from host ~p: ~p", [Host, Message]),
-  % erldns_events:notify({?MODULE, bad_message, {Message, Host}}),
   telemetry:execute([erldns, invalid], #{count => 1}, #{reason => bad_message, message => Message, host => Host}),
   Message.
 
@@ -126,10 +125,8 @@ handle(Message, Host, {throttled, Host, ReqCount}) ->
 %% by filling out count-related header fields.
 handle(Message, Host, _) ->
   % ?LOG_DEBUG("Questions: ~p", [Message#dns_message.questions]),
-  % erldns_events:notify({?MODULE, start_handle, [{host, Host}, {message, Message}]}),
   % telemetry:execute([erldns, handle, start], #{count => 1}, #{host => Host, message => Message}),
   {Time, Response} = timer:tc(?MODULE, do_handle, [Message, Host]),
-  % erldns_events:notify({?MODULE, end_handle, [{host, Host}, {message, Message}, {response, Response}]}),
   telemetry:execute([erldns, handled], #{duration => Time}, #{host => Host, message => Message, response => Response}),
   Response.
 
@@ -144,11 +141,9 @@ do_handle(Message, Host) ->
 handle_message(Message, Host) ->
   case erldns_packet_cache:get({Message#dns_message.questions, Message#dns_message.additional}, Host) of
     {ok, CachedResponse} ->
-      % erldns_events:notify({?MODULE, packet_cache_hit, [{host, Host}, {message, Message}]}),
       telemetry:execute([erldns, cache, packet, hit], #{count => 1}, #{host => Host, message => Message}),
       CachedResponse#dns_message{id=Message#dns_message.id};
     {error, Reason} ->
-      % erldns_events:notify({?MODULE, packet_cache_miss, [{reason, Reason}, {host, Host}, {message, Message}]}),
       telemetry:execute([erldns, cache, packet, miss], #{count => 1}, #{reason => Reason, host => Host, message => Message}),
       handle_packet_cache_miss(Message, get_authority(Message), Host) % SOA lookup
   end.
@@ -184,7 +179,6 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
       catch
         Exception:Reason ->
           % ?LOG_ERROR("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
-          % erldns_events:notify({?MODULE, resolve_error, {Exception, Reason, Message, Stacktrace}}),
           telemetry:execute([erldns, error], #{count => 1}, #{reason => resolve, exception => Exception, detail => Reason, host => Host, message => Message}),
           Message#dns_message{aa = false, rc = ?DNS_RCODE_SERVFAIL}
       end
@@ -220,12 +214,10 @@ notify_empty_response(Message) ->
   case {Message#dns_message.rc, Message#dns_message.anc + Message#dns_message.auc + Message#dns_message.adc} of
     {?DNS_RCODE_REFUSED, _} ->
       % ?LOG_DEBUG("Refused response: questions: ~p)", [Questions]),
-      % erldns_events:notify({?MODULE, refused_response, Message#dns_message.questions}),
       telemetry:execute([erldns, refused], #{count => 1}, #{message => Message}),
       Message;
     {_, 0} ->
       % ?LOG_DEBUG("Empty response: questions: ~p)", [Questions]),
-      % erldns_events:notify({?MODULE, empty_response, Message}),
       telemetry:execute([erldns, empty], #{count => 1}, #{message => Message}),
       Message;
     _ ->
