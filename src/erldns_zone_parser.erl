@@ -501,7 +501,7 @@ base64_to_bin(Bin) when is_binary(Bin) ->
 
 -ifdef(TEST).
 json_record_to_erlang_test() ->
-  erldns_events:start_link(),
+  application:ensure_all_started(telemetry),
   ?assertEqual({}, json_record_to_erlang([])),
   Name = <<"example.com">>,
   ?assertEqual({}, json_record_to_erlang([Name, <<"SOA">>, 3600, null, null])).
