@@ -24,7 +24,7 @@
 start(_Type, _Args) ->
   ?LOG_INFO("Starting erldns application"),
 
-  erldns_telemetry:init(),
+  % erldns_telemetry:init(),
   erldns_metrics:init(),
 
   erldns_sup:start_link().
