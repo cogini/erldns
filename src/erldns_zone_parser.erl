@@ -132,7 +132,8 @@ json_to_erlang([{<<"name">>, Name}, {<<"sha">>, Sha}, {<<"records">>, JsonRecord
                           case try_custom_parsers(Data, Parsers) of
                             {} ->
                               ?LOG_ERROR("Unsupported record: ~p", [Data]),
-                              telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => unsupported_record, data => Data}),
+                              telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                                                #{reason => unsupported_record, data => Data}),
                               {};
                             ParsedRecord -> ParsedRecord
                           end;
@@ -230,7 +231,8 @@ try_custom_parsers(Data, [Parser|Rest]) ->
 % Internal converters
 json_record_to_erlang([Name, Type, _Ttl, Data = null, _] = Record) ->
   ?LOG_DEBUG("Null data record: ~p", [Record]),
-  telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => null_data, name => Name, type => Type, data => Data}),
+  telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                    #{reason => null_data, name => Name, type => Type, data => Data}),
   {};
 
 json_record_to_erlang([Name, <<"SOA">>, Ttl, Data, _Context]) ->
@@ -263,7 +265,8 @@ json_record_to_erlang([Name, Type = <<"A">>, Ttl, Data, _Context] = Record) ->
       #dns_rr{name = Name, type = ?DNS_TYPE_A, data = #dns_rrdata_a{ip = Address}, ttl = Ttl};
     {error, Reason} ->
       ?LOG_ERROR("Could not parse record, invalid IP: ~p", [Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
@@ -273,7 +276,8 @@ json_record_to_erlang([Name, Type = <<"AAAA">>, Ttl, Data, _Context] = Record) -
       #dns_rr{name = Name, type = ?DNS_TYPE_AAAA, data = #dns_rrdata_aaaa{ip = Address}, ttl = Ttl};
     {error, Reason} ->
       ?LOG_ERROR("Could not parse record, invalid IP: ~p", [Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
@@ -337,7 +341,8 @@ json_record_to_erlang([Name, Type = <<"TXT">>, Ttl, Data, _Context] = Record) ->
   catch
     Exception:Reason ->
       ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
@@ -372,7 +377,8 @@ json_record_to_erlang([Name, Type = <<"SSHFP">>, Ttl, Data, _Context] = Record) 
   catch
     Exception:Reason ->
       ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
@@ -418,7 +424,8 @@ json_record_to_erlang([Name, Type = <<"DS">>, Ttl, Data, _Context] = Record) ->
   catch
     Exception:Reason ->
       ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
@@ -438,7 +445,8 @@ json_record_to_erlang([Name, Type = <<"CDS">>, Ttl, Data, _Context] = Record) ->
   catch
     Exception:Reason ->
       ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
@@ -459,7 +467,8 @@ json_record_to_erlang([Name, Type = <<"DNSKEY">>, Ttl, Data, _Context] = Record)
   catch
     Exception:Reason ->
       ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
@@ -480,7 +489,8 @@ json_record_to_erlang([Name, Type = <<"CDNSKEY">>, Ttl, Data, _Context] = Record
   catch
     Exception:Reason ->
       ?LOG_ERROR("Could not parse record ~p:~p: ~p", [Exception, Reason, Record]),
-      telemetry:execute([erldns, ?MODULE, error], #{count => 1}, #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
+      telemetry:execute([erldns, ?MODULE, error], #{count => 1},
+                        #{reason => Exception, detail => Reason, name => Name, type => Type, data => Data}),
       {}
   end;
 
