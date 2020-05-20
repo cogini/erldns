@@ -90,6 +90,7 @@ code_change(_OldVsn, State, _Extra) ->
 handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerProcess}) ->
   case inet:peername(Socket) of
     {ok, {Address, Port}} ->
+      StartTime = os:system_time(microsecond),
       telemetry:execute([erldns, worker, start], #{count => 1},
                         #{host => Address, port => Port, proto => tcp}),
       Result = case Bin of
@@ -107,7 +108,7 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
               ok;
             {trailing_garbage, DecodedMessage, Rest} ->
               % ?LOG_DEBUG("Received traling garbage (address: ~p) ~p ~p", [Address, DecodedMessage, Rest]),
-              telemetry:execute([erldns, invalid], #{count => 1},
+              telemetry:execute([erldns, garbage], #{count => 1},
                                 #{reason => trailing_garbage, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess});
             {formerr, DecodedMessage, Rest} ->
@@ -119,7 +120,8 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
-      telemetry:execute([erldns, worker, stop], #{count => 1},
+      Duration = os:system_time(microsecond) - StartTime,
+      telemetry:execute([erldns, worker, stop], #{duration => Duration},
                         #{host => Address, proto => tcp}),
       gen_tcp:close(Socket),
       Result;
@@ -146,7 +148,7 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
         Error:Reason ->
           % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
           telemetry:execute([erldns, error], #{count => 1},
-                            #{reason => handle, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
+                            #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
           {error, {Error, Reason}}
       end;
     true ->
@@ -163,7 +165,9 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
 -spec handle_udp_dns_query(gen_udp:socket(), gen_udp:ip(), inet:port_number(), binary(), {pid(), term()}) -> ok | {error, not_owner | timeout | inet:posix() | atom()} | {error, timeout, pid()}.
 handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess}) ->
   % ?LOG_DEBUG("handle_udp_dns_query(~p ~p ~p)", [Socket, Host, Port]),
-  telemetry:execute([erldns, worker, start], #{count => 1}, #{host => Host, port => Port, proto => udp}),
+  StartTime = os:system_time(microsecond),
+  telemetry:execute([erldns, worker, start], #{count => 1},
+                    #{host => Host, port => Port, proto => udp}),
   Result = case erldns_decoder:decode_message(Bin) of
     {trailing_garbage, DecodedMessage, Rest} ->
       % ?LOG_DEBUG("Received traling garbage (address: ~p) ~p ~p", [host, DecodedMessage, Rest]),
@@ -184,7 +188,8 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
     DecodedMessage ->
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess})
   end,
-  telemetry:execute([erldns, worker, stop], #{count => 1},
+  Duration = os:system_time(microsecond) - StartTime,
+  telemetry:execute([erldns, worker, stop], #{duration => Duration},
                     #{host => Host, port => Port, proto => udp}),
   Result.
 

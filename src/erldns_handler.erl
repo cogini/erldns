@@ -98,13 +98,15 @@ code_change(_PreviousVersion, State, _Extra) ->
 
 %% If the message has trailing garbage just throw the garbage away and continue
 %% trying to process the message.
+%% Should have been stripped off earlier
 handle({trailing_garbage, Message, _}, Context) ->
   handle(Message, Context);
 %% Handle the message, checking to see if it is throttled.
 handle(Message, Context = {_, Host}) when is_record(Message, dns_message) ->
   handle(Message, Host, erldns_query_throttle:throttle(Message, Context));
 %% The message was bad so just return it.
-%% TODO: consider just throwing away the message
+%% TODO: throw away the message due to potential abuse
+%% TODO: determine if/how bad messages actually get here
 handle(Message, {_, Host}) ->
   % ?LOG_DEBUG("Bad message from host ~p: ~p", [Host, Message]),
   telemetry:execute([erldns, invalid], #{count => 1},
@@ -185,7 +187,7 @@ safe_handle_packet_cache_miss(Message, AuthorityRecords, Host) ->
       catch
         Exception:Reason ->
           % ?LOG_ERROR("Error answering request (exception: ~p, reason: ~p)", [Exception, Reason]),
-          telemetry:execute([erldns, error], #{count => 1},
+          telemetry:execute([erldns, servfail], #{count => 1},
                             #{reason => resolve, exception => Exception, detail => Reason, host => Host, message => Message}),
           Message#dns_message{aa = false, rc = ?DNS_RCODE_SERVFAIL}
       end
