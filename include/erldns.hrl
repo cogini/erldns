@@ -1,10 +1,14 @@
 -include_lib("dns_erlang/include/dns_records.hrl").
 
+% crypto:rsa_private() is no longer exported in OTP 24, so define here
+-type key_integer() :: integer() | binary().
+-type rsa_private() :: [key_integer()].
+
 -record(keyset, {
-    key_signing_key :: crypto:rsa_private(),
+    key_signing_key :: rsa_private(),
     key_signing_key_tag :: non_neg_integer(),
     key_signing_alg :: non_neg_integer(),
-    zone_signing_key :: crypto:rsa_private(),
+    zone_signing_key ::rsa_private(),
     zone_signing_key_tag :: non_neg_integer(),
     zone_signing_alg :: non_neg_integer(),
     inception :: erlang:timestamp() | calendar:datetime1970(),
