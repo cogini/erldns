@@ -13,3 +13,4 @@ priv/_*.json
 db/
 _build/
 Mnesia.nonode@nohost/
+.DS_Store
