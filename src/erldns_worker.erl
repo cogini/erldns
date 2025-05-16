@@ -112,11 +112,12 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
                                 #{reason => trailing_garbage, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess});
             {formerr, DecodedMessage, Rest} ->
-              % ?LOG_DEBUG("Received invalid request (address: ~p) ~p ~p", [Address, DecodedMessage, Rest]),
+              ?LOG_INFO("Received invalid request (address: ~p) ~p ~p", [Address, DecodedMessage, Rest]),
               telemetry:execute([erldns, invalid], #{count => 1},
                                 #{reason => formerr, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             DecodedMessage ->
+              ?LOG_INFO("DecodedMessage from address ~p ~p ~p", [Address, DecodedMessage, Bin]),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
