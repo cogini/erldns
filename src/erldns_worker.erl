@@ -134,7 +134,7 @@ handle_tcp_dns_query(Socket, BadPacket, _) ->
   telemetry:execute([erldns, invalid], #{count => 1}, #{reason => bad_packet, bin => BadPacket}),
   gen_tcp:close(Socket).
 
-handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) ->
+handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) when is_tuple(DecodedMessage) ->
   case DecodedMessage#dns_message.qr of
     false ->
       % Query (0)
@@ -158,7 +158,13 @@ handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {
                         #{reason => qr, host => Address, message => DecodedMessage}),
       % {error, not_a_question}
       ok
-  end.
+  end;
+
+handle_decoded_tcp_message(DecodedMessage, _Socket, Address, _) ->
+  ?LOG_INFO("Dropping invalid DNS request from ~p: ~p", [Address, DecodedMessage]),
+  telemetry:execute([erldns, invalid], #{count => 1},
+                    #{reason => invalid, host => Address, message => DecodedMessage}),
+  ok.
 
 
 %% @doc Handle DNS query that comes in over UDP
