@@ -134,38 +134,61 @@ handle_tcp_dns_query(Socket, BadPacket, _) ->
   telemetry:execute([erldns, invalid], #{count => 1}, #{reason => bad_packet, bin => BadPacket}),
   gen_tcp:close(Socket).
 
-handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) when is_tuple(DecodedMessage) ->
-  case DecodedMessage#dns_message.qr of
-    false ->
-      % Query (0)
-      try gen_server:call(WorkerProcessPid, {process, DecodedMessage, Socket, {tcp, Address}}, _Timeout = ?DEFAULT_TCP_PROCESS_TIMEOUT) of
-        _ -> ok
-      catch
-        exit:{timeout, _} ->
-          telemetry:execute([erldns, error], #{count => 1},
-                            #{reason => timeout, host => Address, message => DecodedMessage}),
-          handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
-        Error:Reason ->
-          % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
-          telemetry:execute([erldns, error], #{count => 1},
-                            #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
-          {error, {Error, Reason}}
-      end;
-    true ->
-      % Response (1)
-      % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
-      telemetry:execute([erldns, invalid], #{count => 1},
-                        #{reason => qr, host => Address, message => DecodedMessage}),
-      % {error, not_a_question}
-      ok
+handle_decoded_tcp_message(#dns_message{qr = false} = DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) ->
+  % Query (0)
+  try gen_server:call(WorkerProcessPid, {process, DecodedMessage, Socket, {tcp, Address}}, _Timeout = ?DEFAULT_TCP_PROCESS_TIMEOUT) of
+    _ -> ok
+  catch
+    exit:{timeout, _} ->
+      telemetry:execute([erldns, error], #{count => 1},
+                        #{reason => timeout, host => Address, message => DecodedMessage}),
+      handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
+    Error:Reason ->
+      % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+      telemetry:execute([erldns, error], #{count => 1},
+                        #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
+      {error, {Error, Reason}}
   end;
 
-handle_decoded_tcp_message(DecodedMessage, _Socket, Address, _) ->
+handle_decoded_tcp_message(#dns_message{qr = true} = DecodedMessage, _, Address, _) ->
+  % Response (1)
+  ?LOG_INFO("Dropping invalid request (not a question) from ~p: ~p", [Address, DecodedMessage]),
+  telemetry:execute([erldns, invalid], #{count => 1},
+                    #{reason => qr, host => Address, message => DecodedMessage}),
+  % {error, not_a_question}
+  ok;
+
+handle_decoded_tcp_message(DecodedMessage, _, Address, _) ->
   ?LOG_INFO("Dropping invalid DNS request from ~p: ~p", [Address, DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => invalid, host => Address, message => DecodedMessage}),
   ok.
 
+% handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) when is_tuple(DecodedMessage) ->
+%   case DecodedMessage#dns_message.qr of
+%     false ->
+%       % Query (0)
+%       try gen_server:call(WorkerProcessPid, {process, DecodedMessage, Socket, {tcp, Address}}, _Timeout = ?DEFAULT_TCP_PROCESS_TIMEOUT) of
+%         _ -> ok
+%       catch
+%         exit:{timeout, _} ->
+%           telemetry:execute([erldns, error], #{count => 1},
+%                             #{reason => timeout, host => Address, message => DecodedMessage}),
+%           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
+%         Error:Reason ->
+%           % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+%           telemetry:execute([erldns, error], #{count => 1},
+%                             #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
+%           {error, {Error, Reason}}
+%       end;
+%     true ->
+%       % Response (1)
+%       % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
+%       telemetry:execute([erldns, invalid], #{count => 1},
+%                         #{reason => qr, host => Address, message => DecodedMessage}),
+%       % {error, not_a_question}
+%       ok
+%   end;
 
 %% @doc Handle DNS query that comes in over UDP
 -spec handle_udp_dns_query(gen_udp:socket(), gen_udp:ip(), inet:port_number(), binary(), {pid(), term()}) -> ok | {error, not_owner | timeout | inet:posix() | atom()} | {error, timeout, pid()}.
