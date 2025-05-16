@@ -117,7 +117,7 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
                                 #{reason => formerr, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             DecodedMessage ->
-              ?LOG_INFO("DecodedMessage from address ~p ~p ~p", [Address, DecodedMessage, Bin]),
+              ?LOG_DEBUG("DecodedMessage from address ~p ~p ~p", [Address, DecodedMessage, Bin]),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
