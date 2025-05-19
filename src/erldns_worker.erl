@@ -112,12 +112,12 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
                                 #{reason => trailing_garbage, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess});
             {formerr, DecodedMessage, Rest} ->
-              ?LOG_INFO("TCP invalid request from ~p ~p ~p", [Address, DecodedMessage, Rest]),
+              ?LOG_INFO("TCP invalid request from ~s ~p ~p", [inet:ntoa(Address), DecodedMessage, Rest]),
               telemetry:execute([erldns, invalid], #{count => 1},
                                 #{reason => formerr, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             DecodedMessage ->
-              ?LOG_DEBUG("TCP request from address ~p ~p ~p", [Address, DecodedMessage, Bin]),
+              ?LOG_DEBUG("TCP request from address ~s ~p ~p", [inet:ntoa(Address), DecodedMessage, Bin]),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
@@ -143,7 +143,7 @@ handle_decoded_tcp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ad
                         #{reason => timeout, host => Address, message => DecodedMessage}),
       handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
     Error:Reason ->
-      ?LOG_INFO("TCP worker process crashed ~p ~p ~p ~p ~p", [Address, Error, Reason, DecodedMessage]),
+      ?LOG_INFO("TCP worker process crashed ~s ~p ~p ~p ~p", [inet:ntoa(Address), Error, Reason, DecodedMessage]),
       telemetry:execute([erldns, error], #{count => 1},
                         #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
       {error, {Error, Reason}}
@@ -151,14 +151,14 @@ handle_decoded_tcp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ad
 
 handle_decoded_tcp_message(#dns_message{qr = true} = DecodedMessage, _, Address, _) ->
   % Response (1)
-  ?LOG_INFO("TCP dropping invalid request (not a question) ~p ~p", [Address, DecodedMessage]),
+  ?LOG_INFO("TCP dropping invalid request (not a question) ~s ~p", [inet:ntoa(Address), DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => qr, host => Address, message => DecodedMessage}),
   % {error, not_a_question}
   ok;
 
 handle_decoded_tcp_message(DecodedMessage, _, Address, _) ->
-  ?LOG_INFO("TCP dropping invalid message ~p ~p", [Address, DecodedMessage]),
+  ?LOG_INFO("TCP dropping invalid message ~s ~p", [inet:ntoa(Address), DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => invalid, host => Address, message => DecodedMessage}),
   ok.
@@ -173,18 +173,18 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
                     #{host => Host, port => Port, proto => udp}),
   Result = case erldns_decoder:decode_message(Bin) of
     {trailing_garbage, DecodedMessage, Rest} ->
-      % ?LOG_DEBUG("UDP message trailing garbage ~p ~p ~p", [Host, DecodedMessage, Rest]),
+      ?LOG_INFO("UDP message trailing garbage ~s ~d ~p ~p", [Host, Port, DecodedMessage, Rest]),
       % Invalid but not final disposition
       telemetry:execute([erldns, garbage], #{count => 1},
                         #{reason => trailing_garbage, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess});
     {formerr, DecodedMessage, Rest} ->
-      % ?LOG_DEBUG("UDP message invalid request ~p ~p ~p", [Host, DecodedMessage, Rest]),
+      ?LOG_INFO("UDP message invalid request ~s ~d ~p ~p", [inet:ntoa(Host), Port, DecodedMessage, Rest]),
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => formerr, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
     {truncated, DecodedMessage, Rest} ->
-      % ?LOG_DEBUG("UDP truncated request ~p ~p ~p", [Host, DecodedMessage, Rest]),
+      ?LOG_INFO("UDP truncated request ~s ~d ~p ~p", [inet:ntoa(Host), DecodedMessage, Rest]),
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => truncated, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
@@ -208,20 +208,20 @@ handle_decoded_udp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ho
                         #{reason => timeout, host => Host, port => Port, message => DecodedMessage}),
       handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
     Error:Reason ->
-      ?LOG_INFO("UDP worker process crashed ~p ~p ~p ~p)", [Host, Port, Error, Reason]),
+      ?LOG_INFO("UDP worker process crashed ~s ~d ~p ~p)", [inet:ntoa(Host), Port, Error, Reason]),
       telemetry:execute([erldns, error], #{count => 1},
                         #{reason => exception, detail => Reason, host => Host, port => Port, message => DecodedMessage}),
       {error, {Error, Reason}}
   end;
 handle_decoded_udp_message(#dns_message{qr = true} = DecodedMessage, _, Host, Port, _) ->
       % Response (1)
-      ?LOG_INFO("UDP dropping invalid request (not a question) ~p ~p ~p", [Host, Port, DecodedMessage]),
+      ?LOG_INFO("UDP dropping invalid request (not a question) ~s ~d ~p", [inet:ntoa(Host), Port, DecodedMessage]),
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => qr, host => Host, port => Port, message => DecodedMessage}),
       % {error, not_a_question}
       ok;
 handle_decoded_udp_message(DecodedMessage, _, Host, Port, _) ->
-  ?LOG_INFO("UDP dropping invalid message ~p ~p ~p", [Host, Port, DecodedMessage]),
+  ?LOG_INFO("UDP dropping invalid message ~s ~d ~p", [inet:ntoa(Host), Port, DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => invalid, host => Host, port => Port, message => DecodedMessage}),
   ok.
