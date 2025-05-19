@@ -145,7 +145,7 @@ handle_decoded_tcp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ad
                         #{reason => timeout, host => Address, message => DecodedMessage}),
       handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
     Error:Reason ->
-      % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+      ?LOG_INFO("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
       telemetry:execute([erldns, error], #{count => 1},
                         #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
       {error, {Error, Reason}}
@@ -225,31 +225,34 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
 
 -spec handle_decoded_udp_message(dns:message(), gen_udp:socket(), gen_udp:ip(), inet:port_number(), {pid(), term()}) ->
   ok | {error, not_owner | timeout | inet:posix() | atom()} | {error, timeout, term()}.
-handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) ->
-  case DecodedMessage#dns_message.qr of
-    false ->
-      % Query (0)
-      try gen_server:call(WorkerProcessPid, {process, DecodedMessage, Socket, Port, {udp, Host}}, _Timeout = ?DEFAULT_UDP_PROCESS_TIMEOUT) of
-        _ -> ok
-      catch
-        exit:{timeout, _} ->
-          telemetry:execute([erldns, error], #{count => 1},
-                            #{reason => timeout, host => Host, port => Port, message => DecodedMessage}),
-          handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
-        Error:Reason ->
-          % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
-          telemetry:execute([erldns, error], #{count => 1},
-                            #{reason => exception, detail => Reason, host => Host, port => Port, message => DecodedMessage}),
-          {error, {Error, Reason}}
-      end;
-    true ->
+handle_decoded_udp_message(#dns_message{qr = false} = DecodedMessage, Socket, Host, Port, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) ->
+  % Query (0)
+  try gen_server:call(WorkerProcessPid, {process, DecodedMessage, Socket, Port, {udp, Host}}, _Timeout = ?DEFAULT_UDP_PROCESS_TIMEOUT) of
+    _ -> ok
+  catch
+    exit:{timeout, _} ->
+      telemetry:execute([erldns, error], #{count => 1},
+                        #{reason => timeout, host => Host, port => Port, message => DecodedMessage}),
+      handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
+    Error:Reason ->
+      ?LOG_INFO("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+      telemetry:execute([erldns, error], #{count => 1},
+                        #{reason => exception, detail => Reason, host => Host, port => Port, message => DecodedMessage}),
+      {error, {Error, Reason}}
+  end;
+handle_decoded_udp_message(#dns_message{qr = true} = DecodedMessage, _, Host, Port, _) ->
       % Response (1)
-      % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
+      ?LOG_INFO("Dropping invalid request (not a question) from ~p: ~p", [Host, DecodedMessage]),
       telemetry:execute([erldns, invalid], #{count => 1},
-                        #{reason => qr, host => Host, message => DecodedMessage}),
+                        #{reason => qr, host => Host, port => Port, message => DecodedMessage}),
       % {error, not_a_question}
-      ok
-  end.
+      ok;
+
+handle_decoded_udp_message(DecodedMessage, _, Host, Port, _) ->
+  ?LOG_INFO("Dropping invalid DNS request from ~p: ~p", [Host, DecodedMessage]),
+  telemetry:execute([erldns, invalid], #{count => 1},
+                    #{reason => invalid, host => Host, port => Port, message => DecodedMessage}),
+  ok.
 
 -spec handle_timeout(dns:message(), pid(), term()) -> {error, timeout, term()} | {error, timeout}.
 handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId) ->
