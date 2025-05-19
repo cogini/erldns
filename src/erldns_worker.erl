@@ -95,29 +95,29 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
                         #{host => Address, port => Port, proto => tcp}),
       Result = case Bin of
         <<>> ->
-            % ?LOG_DEBUG("Received empty request (address: ~p)", [Address]),
+            % ?LOG_DEBUG("TCP empty request from ~p", [Address]),
             telemetry:execute([erldns, invalid], #{count => 1},
                               #{reason => empty, host => Address, port => Port}),
             ok;
         _ ->
           case erldns_decoder:decode_message(Bin) of
             {truncated, DecodedMessage, Rest} ->
-              % ?LOG_DEBUG("Received truncated request (address: ~p)", [Address]),
+              % ?LOG_DEBUG("TCP truncated request from ~p ~p ~p", [Address, DecodedMessage, Rest]),
               telemetry:execute([erldns, invalid], #{count => 1},
                                 #{reason => truncated, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             {trailing_garbage, DecodedMessage, Rest} ->
-              % ?LOG_DEBUG("Received traling garbage (address: ~p) ~p ~p", [Address, DecodedMessage, Rest]),
+              % ?LOG_DEBUG("TCP request with trailing garbage from ~p ~p ~p", [Address, DecodedMessage, Rest]),
               telemetry:execute([erldns, garbage], #{count => 1},
                                 #{reason => trailing_garbage, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess});
             {formerr, DecodedMessage, Rest} ->
-              ?LOG_INFO("Received invalid request (address: ~p) ~p ~p", [Address, DecodedMessage, Rest]),
+              ?LOG_INFO("TCP invalid request from ~p ~p ~p", [Address, DecodedMessage, Rest]),
               telemetry:execute([erldns, invalid], #{count => 1},
                                 #{reason => formerr, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             DecodedMessage ->
-              ?LOG_DEBUG("DecodedMessage from address ~p ~p ~p", [Address, DecodedMessage, Bin]),
+              ?LOG_DEBUG("TCP request from address ~p ~p ~p", [Address, DecodedMessage, Bin]),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess})
           end
       end,
@@ -130,11 +130,9 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => tcp, detail => Reason, proto => tcp})
   end;
-
 handle_tcp_dns_query(Socket, BadPacket, _) ->
   telemetry:execute([erldns, invalid], #{count => 1}, #{reason => bad_packet, bin => BadPacket}),
   gen_tcp:close(Socket).
-
 handle_decoded_tcp_message(#dns_message{qr = false} = DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) ->
   % Query (0)
   try gen_server:call(WorkerProcessPid, {process, DecodedMessage, Socket, {tcp, Address}}, _Timeout = ?DEFAULT_TCP_PROCESS_TIMEOUT) of
@@ -145,7 +143,7 @@ handle_decoded_tcp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ad
                         #{reason => timeout, host => Address, message => DecodedMessage}),
       handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
     Error:Reason ->
-      ?LOG_INFO("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+      ?LOG_INFO("TCP worker process crashed ~p ~p ~p ~p ~p", [Address, Error, Reason, DecodedMessage]),
       telemetry:execute([erldns, error], #{count => 1},
                         #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
       {error, {Error, Reason}}
@@ -153,43 +151,18 @@ handle_decoded_tcp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ad
 
 handle_decoded_tcp_message(#dns_message{qr = true} = DecodedMessage, _, Address, _) ->
   % Response (1)
-  ?LOG_INFO("Dropping invalid request (not a question) from ~p: ~p", [Address, DecodedMessage]),
+  ?LOG_INFO("TCP dropping invalid request (not a question) ~p ~p", [Address, DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => qr, host => Address, message => DecodedMessage}),
   % {error, not_a_question}
   ok;
 
 handle_decoded_tcp_message(DecodedMessage, _, Address, _) ->
-  ?LOG_INFO("Dropping invalid DNS request from ~p: ~p", [Address, DecodedMessage]),
+  ?LOG_INFO("TCP dropping invalid message ~p ~p", [Address, DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => invalid, host => Address, message => DecodedMessage}),
   ok.
 
-% handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, {WorkerProcessId, WorkerProcessPid, _, _}}) when is_tuple(DecodedMessage) ->
-%   case DecodedMessage#dns_message.qr of
-%     false ->
-%       % Query (0)
-%       try gen_server:call(WorkerProcessPid, {process, DecodedMessage, Socket, {tcp, Address}}, _Timeout = ?DEFAULT_TCP_PROCESS_TIMEOUT) of
-%         _ -> ok
-%       catch
-%         exit:{timeout, _} ->
-%           telemetry:execute([erldns, error], #{count => 1},
-%                             #{reason => timeout, host => Address, message => DecodedMessage}),
-%           handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
-%         Error:Reason ->
-%           % ?LOG_ERROR("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
-%           telemetry:execute([erldns, error], #{count => 1},
-%                             #{reason => exception, exception => Error, detail => Reason, host => Address, message => DecodedMessage}),
-%           {error, {Error, Reason}}
-%       end;
-%     true ->
-%       % Response (1)
-%       % ?LOG_DEBUG("Dropping request that is not a question (abuse)"),
-%       telemetry:execute([erldns, invalid], #{count => 1},
-%                         #{reason => qr, host => Address, message => DecodedMessage}),
-%       % {error, not_a_question}
-%       ok
-%   end;
 
 %% @doc Handle DNS query that comes in over UDP
 -spec handle_udp_dns_query(gen_udp:socket(), gen_udp:ip(), inet:port_number(), binary(), {pid(), term()}) -> ok | {error, not_owner | timeout | inet:posix() | atom()} | {error, timeout, pid()}.
@@ -200,18 +173,18 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
                     #{host => Host, port => Port, proto => udp}),
   Result = case erldns_decoder:decode_message(Bin) of
     {trailing_garbage, DecodedMessage, Rest} ->
-      % ?LOG_DEBUG("Received traling garbage (address: ~p) ~p ~p", [host, DecodedMessage, Rest]),
+      % ?LOG_DEBUG("UDP message trailing garbage ~p ~p ~p", [Host, DecodedMessage, Rest]),
       % Invalid but not final disposition
       telemetry:execute([erldns, garbage], #{count => 1},
                         #{reason => trailing_garbage, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       handle_decoded_udp_message(DecodedMessage, Socket, Host, Port, {WorkerProcessSup, WorkerProcess});
     {formerr, DecodedMessage, Rest} ->
-      % ?LOG_DEBUG("Received invalid request (address: ~p) ~p ~p", [Host, DecodedMessage, Rest]),
+      % ?LOG_DEBUG("UDP message invalid request ~p ~p ~p", [Host, DecodedMessage, Rest]),
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => formerr, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
     {truncated, DecodedMessage, Rest} ->
-      % ?LOG_DEBUG("Received truncated request (address: ~p) ~p ~p", [Host, DecodedMessage, Rest]),
+      % ?LOG_DEBUG("UDP truncated request ~p ~p ~p", [Host, DecodedMessage, Rest]),
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => truncated, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
@@ -235,21 +208,20 @@ handle_decoded_udp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ho
                         #{reason => timeout, host => Host, port => Port, message => DecodedMessage}),
       handle_timeout(DecodedMessage, WorkerProcessSup, WorkerProcessId);
     Error:Reason ->
-      ?LOG_INFO("Worker process crashed (error: ~p, reason: ~p)", [Error, Reason]),
+      ?LOG_INFO("UDP worker process crashed ~p ~p ~p ~p)", [Host, Port, Error, Reason]),
       telemetry:execute([erldns, error], #{count => 1},
                         #{reason => exception, detail => Reason, host => Host, port => Port, message => DecodedMessage}),
       {error, {Error, Reason}}
   end;
 handle_decoded_udp_message(#dns_message{qr = true} = DecodedMessage, _, Host, Port, _) ->
       % Response (1)
-      ?LOG_INFO("Dropping invalid request (not a question) from ~p: ~p", [Host, DecodedMessage]),
+      ?LOG_INFO("UDP dropping invalid request (not a question) ~p ~p ~p", [Host, Port, DecodedMessage]),
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => qr, host => Host, port => Port, message => DecodedMessage}),
       % {error, not_a_question}
       ok;
-
 handle_decoded_udp_message(DecodedMessage, _, Host, Port, _) ->
-  ?LOG_INFO("Dropping invalid DNS request from ~p: ~p", [Host, DecodedMessage]),
+  ?LOG_INFO("UDP dropping invalid message ~p ~p ~p", [Host, Port, DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => invalid, host => Host, port => Port, message => DecodedMessage}),
   ok.
