@@ -184,7 +184,7 @@ handle_udp_dns_query(Socket, Host, Port, Bin, {WorkerProcessSup, WorkerProcess})
                         #{reason => formerr, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
     {truncated, DecodedMessage, Rest} ->
-      ?LOG_INFO("UDP truncated request ~s ~d ~p ~p", [inet:ntoa(Host), DecodedMessage, Rest]),
+      ?LOG_INFO("UDP truncated request ~s ~d ~p ~p", [inet:ntoa(Host), Port, DecodedMessage, Rest]),
       telemetry:execute([erldns, invalid], #{count => 1},
                         #{reason => truncated, host => Host, bin => Bin, message => DecodedMessage, rest => Rest}),
       ok;
