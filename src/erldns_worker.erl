@@ -102,12 +102,12 @@ handle_tcp_dns_query(Socket, <<_Len:16, Bin/binary>>, {WorkerProcessSup, WorkerP
         _ ->
           case erldns_decoder:decode_message(Bin) of
             {truncated, DecodedMessage, Rest} ->
-              % ?LOG_DEBUG("TCP truncated request from ~p ~p ~p", [Address, DecodedMessage, Rest]),
+              % ?LOG_DEBUG("TCP truncated request from ~s ~p ~p", [inet:ntoa(Address), DecodedMessage, Rest]),
               telemetry:execute([erldns, invalid], #{count => 1},
                                 #{reason => truncated, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               ok;
             {trailing_garbage, DecodedMessage, Rest} ->
-              % ?LOG_DEBUG("TCP request with trailing garbage from ~p ~p ~p", [Address, DecodedMessage, Rest]),
+              % ?LOG_DEBUG("TCP request with trailing garbage from ~s ~p ~p", [inet:ntoa(Address), DecodedMessage, Rest]),
               telemetry:execute([erldns, garbage], #{count => 1},
                                 #{reason => trailing_garbage, host => Address, port => Port, bin => Bin, message => DecodedMessage, rest => Rest}),
               handle_decoded_tcp_message(DecodedMessage, Socket, Address, {WorkerProcessSup, WorkerProcess});
