@@ -214,14 +214,14 @@ handle_decoded_udp_message(#dns_message{qr = false} = DecodedMessage, Socket, Ho
       {error, {Error, Reason}}
   end;
 handle_decoded_udp_message(#dns_message{qr = true} = DecodedMessage, _, Host, Port, _) ->
-      % Response (1)
-      ?LOG_INFO("UDP invalid request (not a question) ~s ~p ~p", [inet:ntoa(Host), Port, DecodedMessage]),
-      telemetry:execute([erldns, invalid], #{count => 1},
-                        #{reason => qr, host => Host, port => Port, message => DecodedMessage}),
-      % {error, not_a_question}
-      ok;
+    % Response (1)
+    ?LOG_DEBUG("UDP invalid request (not a question) ~s ~p ~p", [inet:ntoa(Host), Port, DecodedMessage]),
+    telemetry:execute([erldns, invalid], #{count => 1},
+                      #{reason => qr, host => Host, port => Port, message => DecodedMessage}),
+    % {error, not_a_question}
+    ok;
 handle_decoded_udp_message(DecodedMessage, _, Host, Port, _) ->
-  ?LOG_INFO("UDP invalid decoded message ~s ~p ~p", [inet:ntoa(Host), Port, DecodedMessage]),
+  ?LOG_DEBUG("UDP invalid decoded message ~s ~p ~p", [inet:ntoa(Host), Port, DecodedMessage]),
   telemetry:execute([erldns, invalid], #{count => 1},
                     #{reason => invalid, host => Host, port => Port, message => DecodedMessage}),
   ok.
